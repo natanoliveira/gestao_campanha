@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  TREASURER
+  COMMUNICATION
+  AUDITOR
+  MEMBER
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum InitiativeStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TimelinePostType {
+  TEXT
+  PHOTO
+  VIDEO
+  PDF
+  LINK
+}
+
+model Organization {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  logo      String?
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  users            User[]
+  projects         Project[]
+  files            File[]
+  auditLogs        AuditLog[]
+
+  @@index([slug])
+  @@index([deletedAt])
+  @@map("organizations")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  email          String
+  passwordHash   String
+  role           Role      @default(MEMBER)
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization     Organization     @relation(fields: [organizationId], references: [id])
+  sessions         Session[]
+  timelinePosts    TimelinePost[]
+  financialEntries FinancialEntry[]
+  financialExits   FinancialExit[]
+  auditLogs        AuditLog[]
+  projectsCreated  Project[]
+
+  @@unique([email, organizationId])
+  @@index([organizationId])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Project {
+  id             String        @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  status         ProjectStatus @default(DRAFT)
+  coverImage     String?
+  isPublic       Boolean       @default(false)
+  publicSlug     String?       @unique
+  startDate      DateTime?
+  endDate        DateTime?
+  createdById    String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  organization     Organization     @relation(fields: [organizationId], references: [id])
+  createdBy        User             @relation(fields: [createdById], references: [id])
+  initiatives      Initiative[]
+  timelinePosts    TimelinePost[]
+  financialEntries FinancialEntry[]
+  financialExits   FinancialExit[]
+  files            File[]
+
+  @@index([organizationId])
+  @@index([publicSlug])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("projects")
+}
+
+model Initiative {
+  id             String           @id @default(uuid())
+  projectId      String
+  organizationId String
+  name           String
+  description    String?
+  goal           Decimal          @db.Decimal(12, 2)
+  minGoal        Decimal?         @db.Decimal(12, 2)
+  raised         Decimal          @default(0) @db.Decimal(12, 2)
+  priority       Int              @default(0)
+  status         InitiativeStatus @default(PENDING)
+  responsibleId  String?
+  dependsOnId    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+
+  project   Project     @relation(fields: [projectId], references: [id])
+  dependsOn Initiative? @relation("InitiativeDependency", fields: [dependsOnId], references: [id])
+  dependents Initiative[] @relation("InitiativeDependency")
+
+  @@index([projectId])
+  @@index([organizationId])
+  @@index([deletedAt])
+  @@map("initiatives")
+}
+
+model TimelinePost {
+  id             String           @id @default(uuid())
+  projectId      String
+  organizationId String
+  content        String
+  type           TimelinePostType @default(TEXT)
+  mediaUrl       String?
+  authorId       String
+  publishedAt    DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+
+  project Project @relation(fields: [projectId], references: [id])
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([projectId])
+  @@index([organizationId])
+  @@index([publishedAt])
+  @@index([deletedAt])
+  @@map("timeline_posts")
+}
+
+model FinancialEntry {
+  id             String    @id @default(uuid())
+  projectId      String
+  initiativeId   String?
+  organizationId String
+  description    String
+  amount         Decimal   @db.Decimal(12, 2)
+  category       String?
+  receiptUrl     String?
+  date           DateTime
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  project   Project @relation(fields: [projectId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@index([projectId])
+  @@index([organizationId])
+  @@index([deletedAt])
+  @@map("financial_entries")
+}
+
+model FinancialExit {
+  id             String    @id @default(uuid())
+  projectId      String
+  initiativeId   String?
+  organizationId String
+  description    String
+  amount         Decimal   @db.Decimal(12, 2)
+  category       String?
+  supplier       String?
+  receiptUrl     String?
+  date           DateTime
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  project   Project @relation(fields: [projectId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@index([projectId])
+  @@index([organizationId])
+  @@index([deletedAt])
+  @@map("financial_exits")
+}
+
+model File {
+  id             String    @id @default(uuid())
+  organizationId String
+  projectId      String?
+  name           String
+  url            String
+  type           String
+  size           Int
+  uploadedById   String
+  createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([deletedAt])
+  @@map("files")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String?
+  action         String
+  entity         String
+  entityId       String
+  before         Json?
+  after          Json?
+  ip             String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
