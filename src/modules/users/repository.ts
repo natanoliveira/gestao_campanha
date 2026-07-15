@@ -11,7 +11,7 @@ export const userRepository = {
   async list(organizationId: string, params: ListUsersDTO) {
     const where = {
       organizationId,
-      deletedAt: null,
+      ...(!params.showDeleted && { deletedAt: null }),
       ...(params.role && { role: params.role }),
       ...(params.active !== undefined && { active: params.active }),
     };

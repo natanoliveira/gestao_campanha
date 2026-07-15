@@ -10,7 +10,11 @@ export async function GET(req: NextRequest) {
     const payload = authenticate(req);
     authorize(payload, ["ADMIN", "MANAGER", "AUDITOR"]);
     const { searchParams } = new URL(req.url);
-    const params = listUsersSchema.parse(Object.fromEntries(searchParams));
+    const rawParams = Object.fromEntries(searchParams);
+    if (rawParams.showDeleted && payload.role !== "ADMIN") {
+      delete rawParams.showDeleted;
+    }
+    const params = listUsersSchema.parse(rawParams);
     const result = await userService.list(payload.organizationId, params);
     return Response.json(result);
   } catch (error) {
