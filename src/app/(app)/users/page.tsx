@@ -2,11 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { Eye, Pencil, UserX, UserCheck, Trash2, Plus, Search } from "lucide-react"
-import { Dialog } from "@base-ui/react/dialog"
-import { AppDrawer } from "@/components/shared/app-drawer"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Badge, type BadgeVariant } from "@/components/ui/badge"
-import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
