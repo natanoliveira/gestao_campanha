@@ -1,11 +1,22 @@
-import Redis from "ioredis";
+// ponytail: memoryCache para dev local; trocar por Upstash quando REDIS_URL estiver configurada em prod
 
-const globalForRedis = globalThis as unknown as { redis: Redis };
+const memoryCache = new Map<string, { value: string; expiresAt: number }>();
 
-export const redis =
-  globalForRedis.redis ??
-  new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
-    maxRetriesPerRequest: 3,
-  });
+function memGet(key: string): Promise<string | null> {
+  const entry = memoryCache.get(key);
+  if (!entry) return Promise.resolve(null);
+  if (Date.now() > entry.expiresAt) { memoryCache.delete(key); return Promise.resolve(null); }
+  return Promise.resolve(entry.value);
+}
 
-if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis;
+function memSet(key: string, value: string, _ex: "EX", ttl: number): Promise<void> {
+  memoryCache.set(key, { value, expiresAt: Date.now() + ttl * 1000 });
+  return Promise.resolve();
+}
+
+function memDel(key: string): Promise<void> {
+  memoryCache.delete(key);
+  return Promise.resolve();
+}
+
+export const redis = { get: memGet, set: memSet, del: memDel };

@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 
 export const authRepository = {
-  findByEmail(email: string, organizationId: string) {
+  findByEmail(email: string) {
     return prisma.user.findFirst({
-      where: { email, organizationId, deletedAt: null, active: true },
+      where: { email, deletedAt: null, active: true },
       select: {
         id: true,
         name: true,

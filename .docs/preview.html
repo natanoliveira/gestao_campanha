@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview — Gestão de Projetos</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface-2: #1a1a1a;
+    --border: #2a2a2a;
+    --border-hover: #3a3a3a;
+    --text: #fafafa;
+    --text-muted: #888;
+    --text-subtle: #555;
+    --accent: #6366f1;
+    --accent-hover: #5254cc;
+    --accent-subtle: #6366f115;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+    --radius: 8px;
+    --radius-sm: 6px;
+    --radius-lg: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,.5);
+  }
+
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+  h1, h2, .login-card h1, .portal-hero h1 { font-family: 'IBM Plex Serif', serif; }
+
+  /* NAV SCREENS */
+  .screen { display: none; }
+  .screen.active { display: flex; }
+
+  /* NAV BAR */
+  .nav { position: fixed; top: 0; left: 0; right: 0; height: 44px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; padding: 0 16px; z-index: 100; }
+  .nav-btn { padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; transition: all .15s; font-family: inherit; }
+  .nav-btn:hover, .nav-btn.active { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent); }
+  .nav-label { font-size: 11px; color: var(--text-subtle); margin-right: 4px; }
+
+  /* ─── LOGIN ─── */
+  #login { min-height: 100vh; align-items: center; justify-content: center; padding: 24px; padding-top: 68px; }
+  .login-card { width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; box-shadow: var(--shadow-lg); }
+  .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .login-logo .mark { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: grid; place-items: center; }
+  .login-logo .mark svg { width: 18px; height: 18px; fill: white; }
+  .login-logo .name { font-size: 15px; font-weight: 600; }
+  .login-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .login-card p { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+  .field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color .15s; }
+  .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+  .field input::placeholder { color: var(--text-subtle); }
+  .btn { width: 100%; padding: 10px; background: var(--accent); border: none; border-radius: var(--radius-sm); color: white; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; transition: background .15s; margin-top: 4px; }
+  .btn:hover { background: var(--accent-hover); }
+  .login-footer { text-align: center; margin-top: 20px; font-size: 12px; color: var(--text-subtle); }
+
+  /* ─── LAYOUT AUTENTICADO ─── */
+  #dashboard, #projects, #project-detail, #portal { flex-direction: row; min-height: 100vh; padding-top: 44px; }
+
+  /* SIDEBAR */
+  .sidebar { width: 220px; min-height: calc(100vh - 44px); background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .sidebar-logo { display: flex; align-items: center; gap: 8px; padding: 8px; margin-bottom: 8px; }
+  .sidebar-logo .mark { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: grid; place-items: center; flex-shrink: 0; }
+  .sidebar-logo .mark svg { width: 14px; height: 14px; fill: white; }
+  .sidebar-logo .name { font-size: 13px; font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: var(--radius-sm); color: var(--text-muted); font-size: 13px; cursor: pointer; transition: all .15s; text-decoration: none; }
+  .nav-item:hover { background: var(--surface-2); color: var(--text); }
+  .nav-item.active { background: var(--accent-subtle); color: var(--accent); }
+  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .sidebar-section { font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: .06em; padding: 12px 10px 4px; margin-top: 4px; }
+  .sidebar-spacer { flex: 1; }
+  .sidebar-user { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--border); margin-top: 8px; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; font-size: 11px; font-weight: 600; color: white; flex-shrink: 0; }
+  .sidebar-user .info .name { font-size: 12px; font-weight: 500; }
+  .sidebar-user .info .role { font-size: 11px; color: var(--text-subtle); }
+
+  /* MAIN CONTENT */
+  .main { flex: 1; overflow-y: auto; }
+  .main-header { padding: 24px 28px 0; border-bottom: 1px solid var(--border); padding-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .main-header h1 { font-size: 18px; font-weight: 600; }
+  .main-header p { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .breadcrumb { font-size: 12px; color: var(--text-subtle); margin-bottom: 4px; }
+  .breadcrumb span { color: var(--text-muted); }
+  .content { padding: 24px 28px; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-sm { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+
+  /* KPI GRID */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .kpi .label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .kpi .value { font-size: 22px; font-weight: 600; }
+  .kpi .delta { font-size: 11px; color: var(--success); margin-top: 4px; }
+  .kpi .delta.down { color: var(--danger); }
+
+  /* BADGE */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge.active { background: #22c55e18; color: var(--success); }
+  .badge.draft { background: #88888818; color: var(--text-muted); }
+  .badge.completed { background: #3b82f618; color: var(--info); }
+  .badge.archived { background: #f59e0b18; color: var(--warning); }
+  .badge.dot::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 12px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface-2); }
+
+  /* PROGRESS */
+  .progress-bar { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; background: var(--accent); }
+  .progress-fill.success { background: var(--success); }
+  .progress-fill.warn { background: var(--warning); }
+
+  /* GRID 2 cols */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  /* TIMELINE FEED */
+  .feed { display: flex; flex-direction: column; gap: 0; }
+  .feed-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .feed-item:last-child { border-bottom: none; }
+  .feed-dot { width: 28px; height: 28px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); display: grid; place-items: center; flex-shrink: 0; margin-top: 1px; }
+  .feed-dot svg { width: 13px; height: 13px; color: var(--text-muted); }
+  .feed-body .meta { font-size: 11px; color: var(--text-subtle); margin-bottom: 2px; }
+  .feed-body .meta span { color: var(--text-muted); }
+  .feed-body .text { font-size: 13px; color: var(--text); }
+
+  /* TABS */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 10px 14px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab:hover { color: var(--text); }
+
+  /* INITIATIVE CARD */
+  .initiative { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .initiative .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .initiative .name { font-size: 13px; font-weight: 500; }
+  .initiative .pct { font-size: 13px; font-weight: 600; color: var(--accent); }
+  .initiative .meta { font-size: 11px; color: var(--text-subtle); margin-top: 6px; }
+
+  /* PORTAL */
+  #portal { flex-direction: column; padding-top: 44px; }
+  .portal-hero { background: linear-gradient(135deg, #0f0f1a 0%, #1a1030 100%); border-bottom: 1px solid var(--border); padding: 48px 0 36px; text-align: center; }
+  .portal-hero .org { font-size: 12px; color: var(--text-subtle); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; }
+  .portal-hero h1 { font-size: 30px; font-weight: 700; max-width: 560px; margin: 0 auto 12px; }
+  .portal-hero p { font-size: 15px; color: var(--text-muted); max-width: 480px; margin: 0 auto 28px; }
+  .portal-meta { display: inline-flex; align-items: center; gap: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 28px; margin-bottom: 28px; }
+  .portal-meta .stat .label { font-size: 11px; color: var(--text-subtle); margin-bottom: 2px; text-align: center; }
+  .portal-meta .stat .val { font-size: 20px; font-weight: 700; text-align: center; }
+  .portal-meta .divider { width: 1px; height: 36px; background: var(--border); }
+  .portal-progress { max-width: 480px; margin: 0 auto; }
+  .portal-progress .top { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-subtle); margin-bottom: 6px; }
+  .portal-progress .bar { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .portal-progress .fill { height: 100%; width: 64%; background: linear-gradient(90deg, var(--accent), #818cf8); border-radius: 99px; }
+  .portal-body { max-width: 720px; margin: 0 auto; padding: 36px 24px; }
+  .portal-section { margin-bottom: 36px; }
+  .portal-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .cta-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: white; padding: 11px 22px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; text-decoration: none; cursor: pointer; border: none; font-family: inherit; }
+
+  /* UTIL */
+  .text-muted { color: var(--text-muted); }
+  .text-sm { font-size: 12px; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+  .gap-2 { gap: 8px; }
+  .gap-3 { gap: 12px; }
+  .mb-1 { margin-bottom: 4px; }
+  .mb-3 { margin-bottom: 12px; }
+  .mb-4 { margin-bottom: 16px; }
+  .mb-5 { margin-bottom: 20px; }
+  .font-medium { font-weight: 500; }
+  .font-semibold { font-weight: 600; }
+  .outline-btn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; font-family: inherit; transition: all .15s; }
+  .outline-btn:hover { border-color: var(--border-hover); background: var(--surface-2); }
+  .primary-btn { background: var(--accent); border: none; color: white; padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; font-family: inherit; transition: background .15s; }
+  .primary-btn:hover { background: var(--accent-hover); }
+  .fin-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .fin-row:last-child { border-bottom: none; }
+  .amount-in { color: var(--success); font-weight: 500; }
+  .amount-out { color: var(--danger); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- NAV DE PREVIEW -->
+<div class="nav">
+  <span class="nav-label">Tela:</span>
+  <button class="nav-btn active" onclick="show('login', this)">Login</button>
+  <button class="nav-btn" onclick="show('dashboard', this)">Dashboard</button>
+  <button class="nav-btn" onclick="show('projects', this)">Projetos</button>
+  <button class="nav-btn" onclick="show('project-detail', this)">Detalhe Projeto</button>
+  <button class="nav-btn" onclick="show('portal', this)">Portal Público</button>
+</div>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="login" class="screen active">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="mark">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <span class="name">GestãoProjetos</span>
+    </div>
+    <h1>Bem-vindo de volta</h1>
+    <p>Acesse sua conta para gerenciar projetos.</p>
+    <div class="field">
+      <label>E-mail</label>
+      <input type="email" placeholder="admin@demo.com" value="admin@demo.com">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="password" placeholder="••••••••" value="senha123">
+    </div>
+    <button class="btn" onclick="show('dashboard', document.querySelectorAll('.nav-btn')[1])">Entrar</button>
+    <div class="login-footer">Gestão de Projetos Financiados por Comunidades</div>
+  </div>
+</div>
+
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<div id="dashboard" class="screen">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="mark"><svg viewBox="0 0 24 24" fill="white"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+      <span class="name">GestãoProjetos</span>
+    </div>
+    <span class="sidebar-section">Principal</span>
+    <a class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-item" onclick="show('projects', document.querySelectorAll('.nav-btn')[2])">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
+      Projetos
+    </a>
+    <span class="sidebar-section">Organização</span>
+    <a class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Usuários
+    </a>
+    <a class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Configurações
+    </a>
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-user">
+      <div class="avatar">AS</div>
+      <div class="info">
+        <div class="name">Admin Silva</div>
+        <div class="role">Administrador</div>
+      </div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="main-header">
+      <div>
+        <h1>Dashboard</h1>
+        <p>Visão geral da Demo Organização</p>
+      </div>
+      <button class="primary-btn">+ Novo Projeto</button>
+    </div>
+    <div class="content">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Projetos Ativos</div><div class="value">3</div><div class="delta">↑ 1 este mês</div></div>
+        <div class="kpi"><div class="label">Total Arrecadado</div><div class="value">R$ 15.700</div><div class="delta">↑ 12% vs mês ant.</div></div>
+        <div class="kpi"><div class="label">Meta Global</div><div class="value">64%</div><div class="delta">↑ 8% este mês</div></div>
+        <div class="kpi"><div class="label">Iniciativas</div><div class="value">9</div><div class="delta down">↓ 2 atrasadas</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <span class="font-semibold">Projetos Recentes</span>
+            <a style="font-size:12px;color:var(--accent);cursor:pointer" onclick="show('projects', document.querySelectorAll('.nav-btn')[2])">Ver todos →</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Projeto</th><th>Status</th><th>Meta</th></tr></thead>
+              <tbody>
+                <tr><td onclick="show('project-detail', document.querySelectorAll('.nav-btn')[3])" style="cursor:pointer;color:var(--accent)">Reforma da Sede 2025</td><td><span class="badge active dot">Ativo</span></td><td><div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:64%"></div></div></td></tr>
+                <tr><td style="color:var(--text)">Campanha Solidária</td><td><span class="badge active dot">Ativo</span></td><td><div class="progress-bar" style="width:80px"><div class="progress-fill success" style="width:100%"></div></div></td></tr>
+                <tr><td style="color:var(--text)">Biblioteca Comunitária</td><td><span class="badge draft dot">Rascunho</span></td><td><div class="progress-bar" style="width:80px"><div class="progress-fill warn" style="width:30%"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="font-semibold mb-4">Atividades Recentes</div>
+          <div class="feed">
+            <div class="feed-item">
+              <div class="feed-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+              <div class="feed-body"><div class="meta"><span>Comunicação Lima</span> publicou na timeline · 2h</div><div class="text">Instalação elétrica concluída com sucesso!</div></div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+              <div class="feed-body"><div class="meta"><span>Tesoureiro Costa</span> registrou entrada · 5h</div><div class="text">Campanha online — R$ 3.200,00</div></div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="feed-body"><div class="meta"><span>Gestor Santos</span> atualizou iniciativa · 1d</div><div class="text">Pintura Geral → Em Andamento</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════════ PROJETOS ═══════════════ -->
+<div id="projects" class="screen">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="mark"><svg viewBox="0 0 24 24" fill="white"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><span class="name">GestãoProjetos</span></div>
+    <span class="sidebar-section">Principal</span>
+    <a class="nav-item" onclick="show('dashboard', document.querySelectorAll('.nav-btn')[1])"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a>
+    <a class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>Projetos</a>
+    <span class="sidebar-section">Organização</span>
+    <a class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Usuários</a>
+    <a class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>Configurações</a>
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-user"><div class="avatar">AS</div><div class="info"><div class="name">Admin Silva</div><div class="role">Administrador</div></div></div>
+  </aside>
+  <main class="main">
+    <div class="main-header">
+      <div><h1>Projetos</h1><p>3 projetos encontrados</p></div>
+      <button class="primary-btn">+ Novo Projeto</button>
+    </div>
+    <div class="content">
+      <div class="card mb-4" style="padding:12px 16px">
+        <div class="flex gap-2 items-center">
+          <input style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none" placeholder="Buscar projetos...">
+          <select style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none"><option>Todos os status</option><option>Ativo</option><option>Rascunho</option><option>Concluído</option></select>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="card" style="cursor:pointer" onclick="show('project-detail', document.querySelectorAll('.nav-btn')[3])">
+          <div style="height:100px;background:linear-gradient(135deg,#312e81,#4c1d95);border-radius:6px;margin:-20px -20px 14px;"></div>
+          <div class="flex items-center justify-between mb-2"><span class="font-semibold">Reforma da Sede 2025</span><span class="badge active dot">Ativo</span></div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Reforma completa da sede incluindo pintura, elétrica e mobiliário.</p>
+          <div class="progress-bar mb-1"><div class="progress-fill" style="width:64%"></div></div>
+          <div class="flex justify-between text-sm text-muted"><span>R$ 15.700 arrecadados</span><span>64%</span></div>
+        </div>
+        <div class="card" style="cursor:pointer">
+          <div style="height:100px;background:linear-gradient(135deg,#065f46,#064e3b);border-radius:6px;margin:-20px -20px 14px;"></div>
+          <div class="flex items-center justify-between mb-2"><span class="font-semibold">Campanha Solidária</span><span class="badge active dot">Ativo</span></div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Arrecadação de alimentos e roupas para famílias em vulnerabilidade.</p>
+          <div class="progress-bar mb-1"><div class="progress-fill success" style="width:100%"></div></div>
+          <div class="flex justify-between text-sm text-muted"><span>R$ 8.000 arrecadados</span><span>100%</span></div>
+        </div>
+        <div class="card" style="cursor:pointer">
+          <div style="height:100px;background:linear-gradient(135deg,#1e3a5f,#1e2a4a);border-radius:6px;margin:-20px -20px 14px;"></div>
+          <div class="flex items-center justify-between mb-2"><span class="font-semibold">Biblioteca Comunitária</span><span class="badge draft dot">Rascunho</span></div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Criação de espaço de leitura e aprendizado para a comunidade.</p>
+          <div class="progress-bar mb-1"><div class="progress-fill warn" style="width:30%"></div></div>
+          <div class="flex justify-between text-sm text-muted"><span>R$ 3.600 arrecadados</span><span>30%</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════════ DETALHE PROJETO ═══════════════ -->
+<div id="project-detail" class="screen">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="mark"><svg viewBox="0 0 24 24" fill="white"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><span class="name">GestãoProjetos</span></div>
+    <span class="sidebar-section">Principal</span>
+    <a class="nav-item" onclick="show('dashboard', document.querySelectorAll('.nav-btn')[1])"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a>
+    <a class="nav-item active" onclick="show('projects', document.querySelectorAll('.nav-btn')[2])"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>Projetos</a>
+    <span class="sidebar-section">Organização</span>
+    <a class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Usuários</a>
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-user"><div class="avatar">AS</div><div class="info"><div class="name">Admin Silva</div><div class="role">Administrador</div></div></div>
+  </aside>
+  <main class="main">
+    <div style="height:140px;background:linear-gradient(135deg,#312e81,#4c1d95);position:relative;overflow:hidden">
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.6))"></div>
+      <div style="position:absolute;bottom:16px;left:28px;right:28px;display:flex;align-items:flex-end;justify-content:space-between">
+        <div>
+          <div class="breadcrumb" style="color:rgba(255,255,255,.6)">Projetos / <span style="color:white">Reforma da Sede 2025</span></div>
+          <h1 style="font-size:20px;font-weight:700;color:white">Reforma da Sede 2025</h1>
+        </div>
+        <div class="flex gap-2"><button class="outline-btn" style="font-size:12px">Editar</button><button class="primary-btn" style="font-size:12px">Portal Público →</button></div>
+      </div>
+    </div>
+    <div class="content" style="padding-top:16px">
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="kpi"><div class="label">Arrecadado</div><div class="value" style="font-size:18px">R$ 15.700</div></div>
+        <div class="kpi"><div class="label">Meta Total</div><div class="value" style="font-size:18px">R$ 25.000</div></div>
+        <div class="kpi"><div class="label">Progresso</div><div class="value" style="font-size:18px;color:var(--accent)">64%</div></div>
+        <div class="kpi"><div class="label">Iniciativas</div><div class="value" style="font-size:18px">3</div></div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Resumo</div>
+        <div class="tab">Iniciativas</div>
+        <div class="tab">Timeline</div>
+        <div class="tab">Prestação de Contas</div>
+      </div>
+      <div class="grid-2">
+        <div>
+          <div class="font-semibold mb-3">Iniciativas</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="initiative"><div class="top"><span class="name">Pintura Geral</span><span class="pct">64%</span></div><div class="progress-bar"><div class="progress-fill warn" style="width:64%"></div></div><div class="meta">R$ 3.200 / R$ 5.000 · Em Andamento</div></div>
+            <div class="initiative"><div class="top"><span class="name">Instalação Elétrica</span><span class="pct" style="color:var(--success)">100%</span></div><div class="progress-bar"><div class="progress-fill success" style="width:100%"></div></div><div class="meta">R$ 8.000 / R$ 8.000 · Concluída</div></div>
+            <div class="initiative"><div class="top"><span class="name">Mobiliário</span><span class="pct">38%</span></div><div class="progress-bar"><div class="progress-fill" style="width:38%"></div></div><div class="meta">R$ 4.500 / R$ 12.000 · Em Andamento</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="font-semibold mb-3">Timeline Recente</div>
+          <div class="feed">
+            <div class="feed-item"><div class="feed-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="feed-body"><div class="meta"><span>Comunicação Lima</span> · 2h</div><div class="text">Instalação elétrica concluída com sucesso! Toda a fiação foi renovada.</div></div></div>
+            <div class="feed-item"><div class="feed-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="feed-body"><div class="meta"><span>Comunicação Lima</span> · 3d</div><div class="text">Recebemos doação de cadeiras da empresa parceira. Muito obrigado!</div></div></div>
+            <div class="feed-item"><div class="feed-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="feed-body"><div class="meta"><span>Comunicação Lima</span> · 5d</div><div class="text">Iniciamos as obras de pintura da fachada.</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════════ PORTAL PÚBLICO ═══════════════ -->
+<div id="portal" class="screen">
+  <div class="portal-hero">
+    <div class="org">Demo Organização</div>
+    <h1>Reforma da Sede 2025</h1>
+    <p>Reforma completa da sede incluindo pintura, elétrica e mobiliário. Acompanhe cada etapa com total transparência.</p>
+    <div class="portal-meta">
+      <div class="stat"><div class="label">Arrecadado</div><div class="val">R$ 15.700</div></div>
+      <div class="divider"></div>
+      <div class="stat"><div class="label">Meta</div><div class="val">R$ 25.000</div></div>
+      <div class="divider"></div>
+      <div class="stat"><div class="label">Apoiadores</div><div class="val">42</div></div>
+    </div>
+    <div class="portal-progress">
+      <div class="top"><span>Progresso geral</span><span>64%</span></div>
+      <div class="bar"><div class="fill"></div></div>
+    </div>
+  </div>
+  <div class="portal-body">
+    <div class="portal-section">
+      <h2>Iniciativas</h2>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="initiative"><div class="top"><span class="name">Pintura Geral</span><span class="pct">64%</span></div><div class="progress-bar"><div class="progress-fill warn" style="width:64%"></div></div><div class="meta">R$ 3.200 de R$ 5.000</div></div>
+        <div class="initiative"><div class="top"><span class="name">Instalação Elétrica</span><span class="pct" style="color:var(--success)">100%</span></div><div class="progress-bar"><div class="progress-fill success" style="width:100%"></div></div><div class="meta">R$ 8.000 de R$ 8.000 · Concluída ✓</div></div>
+        <div class="initiative"><div class="top"><span class="name">Mobiliário</span><span class="pct">38%</span></div><div class="progress-bar"><div class="progress-fill" style="width:38%"></div></div><div class="meta">R$ 4.500 de R$ 12.000</div></div>
+      </div>
+    </div>
+    <div class="portal-section">
+      <h2>Timeline</h2>
+      <div class="feed">
+        <div class="feed-item"><div class="feed-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="feed-body"><div class="meta">2 horas atrás</div><div class="text">Instalação elétrica concluída com sucesso! Toda a fiação foi renovada.</div></div></div>
+        <div class="feed-item"><div class="feed-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="feed-body"><div class="meta">3 dias atrás</div><div class="text">Recebemos doação de cadeiras da empresa parceira. Muito obrigado!</div></div></div>
+        <div class="feed-item"><div class="feed-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="feed-body"><div class="meta">5 dias atrás</div><div class="text">Iniciamos as obras de pintura da fachada. Equipe já está trabalhando!</div></div></div>
+      </div>
+    </div>
+    <div class="portal-section">
+      <h2>Prestação de Contas</h2>
+      <div class="card-sm">
+        <div class="fin-row"><span>Doação membro João</span><span class="amount-in">+ R$ 500,00</span></div>
+        <div class="fin-row"><span>Campanha online</span><span class="amount-in">+ R$ 3.200,00</span></div>
+        <div class="fin-row"><span>Tintas e materiais</span><span class="amount-out">− R$ 1.800,00</span></div>
+        <div class="fin-row"><span>Mão de obra pintura</span><span class="amount-out">− R$ 2.000,00</span></div>
+        <div class="fin-row" style="font-weight:600;border-top:1px solid var(--border);padding-top:12px"><span>Saldo atual</span><span style="color:var(--success)">R$ 1.900,00</span></div>
+      </div>
+    </div>
+    <div style="text-align:center;padding:8px 0 20px">
+      <button class="cta-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        Como contribuir
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function show(id, btn) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if (btn) btn.classList.add('active');
+  }
+</script>
+</body>
+</html>

@@ -8,8 +8,8 @@ import type { LoginDTO } from "./dto";
 const REFRESH_PREFIX = "refresh:";
 
 export const authService = {
-  async login(dto: LoginDTO, organizationId: string) {
-    const user = await authRepository.findByEmail(dto.email, organizationId);
+  async login(dto: LoginDTO) {
+    const user = await authRepository.findByEmail(dto.email);
     if (!user) throw new AppError("Credenciais inválidas", 401, "UNAUTHORIZED");
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);

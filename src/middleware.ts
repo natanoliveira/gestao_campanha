@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAccessToken } from "@/lib/jwt";
 
 const PUBLIC_PATHS = ["/login", "/p/", "/api/v1/auth/", "/api/v1/public/"];
 
@@ -10,18 +9,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
+  // page navigation não envia headers — usa cookie de refresh_token como sinal de autenticação
+  const hasSession = req.cookies.has("refresh_token");
 
-  if (!token) {
+  if (!hasSession) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  try {
-    verifyAccessToken(token);
-    return NextResponse.next();
-  } catch {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
+  return NextResponse.next();
 }
 
 export const config = {
