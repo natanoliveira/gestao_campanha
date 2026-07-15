@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { Eye, Pencil, UserX, UserCheck, Trash2, Plus, Search } from "lucide-react"
 import { Dialog } from "@base-ui/react/dialog"
+import { AppDrawer } from "@/components/shared/app-drawer"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Badge, type BadgeVariant } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
@@ -554,6 +555,64 @@ function EditUserModal({
   )
 }
 
-function UserDetailDrawer(_: { user: User | null; onClose: () => void }) {
-  return null
+function UserDetailDrawer({
+  user,
+  onClose,
+}: {
+  user: User | null
+  onClose: () => void
+}) {
+  const fmt = (d: string) =>
+    new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
+
+  return (
+    <AppDrawer
+      open={!!user}
+      onOpenChange={(next) => { if (!next) onClose() }}
+      title="Detalhes do Usuário"
+      description={user?.email}
+    >
+      {user && (
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex items-center gap-4">
+            <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-white text-xl font-semibold">
+              {user.name[0]?.toUpperCase()}
+            </span>
+            <div>
+              <div className="font-semibold text-foreground text-[16px]">{user.name}</div>
+              <div className="text-muted-foreground text-[13px]">{user.email}</div>
+            </div>
+          </div>
+
+          <div className="space-y-0">
+            <DetailRow label="Role">
+              <Badge variant={ROLE_MAP[user.role].variant}>{ROLE_MAP[user.role].label}</Badge>
+            </DetailRow>
+            <DetailRow label="Status">
+              <Badge variant={user.active ? "active" : "danger"}>
+                {user.active ? "Ativo" : "Inativo"}
+              </Badge>
+            </DetailRow>
+            {user.deletedAt && (
+              <DetailRow label="Situação">
+                <Badge variant="danger">Removido</Badge>
+              </DetailRow>
+            )}
+            <DetailRow label="Criado em">
+              <span className="text-[13px] text-foreground">{fmt(user.createdAt)}</span>
+            </DetailRow>
+          </div>
+        </div>
+      )}
+    </AppDrawer>
+  )
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
+      <span className="text-[13px] text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  )
 }
