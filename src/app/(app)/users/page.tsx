@@ -371,8 +371,11 @@ function CreateUserModal({
 
   function handleOpenChange(next: boolean) {
     if (loading) return
-    if (!next) { setError(null); setForm({ name: "", email: "", password: "", role: "MEMBER" }) }
-    onClose()
+    if (!next) {
+      setError(null)
+      setForm({ name: "", email: "", password: "", role: "MEMBER" })
+      onClose()
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -573,7 +576,7 @@ function UserDetailDrawer({
       description={user?.email}
     >
       {user && (
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="space-y-6">
           <div className="flex items-center gap-4">
             <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-white text-xl font-semibold">
               {user.name[0]?.toUpperCase()}

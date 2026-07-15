@@ -21,6 +21,7 @@ export const listUsersSchema = z.object({
   role: z.enum(roles).optional(),
   active: z.coerce.boolean().optional(),
   showDeleted: z.coerce.boolean().optional(),
+  q: z.string().optional(),
 });
 
 export type CreateUserDTO = z.infer<typeof createUserSchema>;

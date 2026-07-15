@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { CreateUserDTO, UpdateUserDTO, ListUsersDTO } from "./dto";
 
-const select = { id: true, name: true, email: true, role: true, active: true, createdAt: true, organizationId: true };
+const select = { id: true, name: true, email: true, role: true, active: true, createdAt: true, organizationId: true, deletedAt: true };
 
 export const userRepository = {
   findById(id: string, organizationId: string) {
@@ -12,6 +12,12 @@ export const userRepository = {
     const where = {
       organizationId,
       ...(!params.showDeleted && { deletedAt: null }),
+      ...(params.q && {
+        OR: [
+          { name: { contains: params.q, mode: "insensitive" as const } },
+          { email: { contains: params.q, mode: "insensitive" as const } },
+        ],
+      }),
       ...(params.role && { role: params.role }),
       ...(params.active !== undefined && { active: params.active }),
     };
