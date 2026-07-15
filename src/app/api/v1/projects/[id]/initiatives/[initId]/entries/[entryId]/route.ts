@@ -11,7 +11,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     const payload = authenticate(req);
     authorize(payload, ["ADMIN"]);
     const { initId, entryId } = await params;
-    await financialService.removeEntry(entryId, initId);
+    await financialService.removeEntry(entryId, initId, payload.organizationId);
     return new Response(null, { status: 204 });
   } catch (e) { return errorResponse(e); }
 }

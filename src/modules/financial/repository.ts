@@ -5,13 +5,13 @@ const catSelect = { select: { id: true, name: true } };
 
 const entrySelect = {
   id: true, description: true, amount: true, date: true,
-  categoryId: true, deletedAt: true,
+  categoryId: true,
   category: catSelect,
 };
 
 const exitSelect = {
   id: true, description: true, amount: true, date: true,
-  categoryId: true, supplier: true, deletedAt: true,
+  categoryId: true, supplier: true,
   category: catSelect,
 };
 
@@ -28,8 +28,8 @@ export const financialRepository = {
     return prisma.financialEntry.create({ data: { ...data, date: new Date(data.date) }, select: entrySelect });
   },
 
-  findEntry(id: string, initiativeId: string) {
-    return prisma.financialEntry.findFirst({ where: { id, initiativeId, deletedAt: null }, select: { id: true } });
+  findEntry(id: string, initiativeId: string, organizationId: string) {
+    return prisma.financialEntry.findFirst({ where: { id, initiativeId, organizationId, deletedAt: null }, select: { id: true } });
   },
 
   softDeleteEntry(id: string) {
@@ -48,8 +48,8 @@ export const financialRepository = {
     return prisma.financialExit.create({ data: { ...data, date: new Date(data.date) }, select: exitSelect });
   },
 
-  findExit(id: string, initiativeId: string) {
-    return prisma.financialExit.findFirst({ where: { id, initiativeId, deletedAt: null }, select: { id: true } });
+  findExit(id: string, initiativeId: string, organizationId: string) {
+    return prisma.financialExit.findFirst({ where: { id, initiativeId, organizationId, deletedAt: null }, select: { id: true } });
   },
 
   softDeleteExit(id: string) {

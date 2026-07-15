@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import type { CreateProjectDTO, UpdateProjectDTO } from "./dto";
 
-const initSelect = { id: true, name: true, goal: true, status: true, description: true, priority: true } as const;
+const initSelect = {
+  id: true, name: true, goal: true, status: true, description: true, priority: true,
+  entries: { where: { deletedAt: null }, select: { amount: true } },
+} as const;
 
 export const projectRepository = {
   async list(organizationId: string, opts: { status?: string; q?: string; skip: number; take: number }) {

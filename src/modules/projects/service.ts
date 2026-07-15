@@ -7,13 +7,26 @@ export const projectService = {
   async list(organizationId: string, dto: ListProjectsDTO) {
     const { skip, take, page, limit } = parsePagination(dto);
     const { data, total } = await projectRepository.list(organizationId, { ...dto, skip, take });
-    return paginatedResponse(data, total, page, limit);
+    const mapped = data.map(p => ({
+      ...p,
+      initiatives: p.initiatives.map(i => ({
+        ...i,
+        raised: i.entries.reduce((s, e) => s + Number(e.amount), 0),
+      })),
+    }));
+    return paginatedResponse(mapped, total, page, limit);
   },
 
   async getById(id: string, organizationId: string) {
     const project = await projectRepository.findById(id, organizationId);
     if (!project) throw new AppError("Projeto não encontrado", 404, "NOT_FOUND");
-    return project;
+    return {
+      ...project,
+      initiatives: project.initiatives.map(i => ({
+        ...i,
+        raised: i.entries.reduce((s, e) => s + Number(e.amount), 0),
+      })),
+    };
   },
 
   async create(organizationId: string, userId: string, dto: CreateProjectDTO) {
