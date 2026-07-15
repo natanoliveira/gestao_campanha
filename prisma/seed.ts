@@ -65,9 +65,9 @@ async function main() {
 
   // Iniciativas
   const iniciativas = [
-    { name: "Pintura Geral",    goal: 5000,  raised: 3200 },
-    { name: "Instalação Elétrica", goal: 8000, raised: 8000 },
-    { name: "Mobiliário",       goal: 12000, raised: 4500 },
+    { name: "Pintura Geral",       goal: 5000,  status: "IN_PROGRESS" as const },
+    { name: "Instalação Elétrica", goal: 8000,  status: "COMPLETED"   as const },
+    { name: "Mobiliário",          goal: 12000, status: "IN_PROGRESS" as const },
   ];
 
   for (const i of iniciativas) {
@@ -77,8 +77,7 @@ async function main() {
         organizationId: org.id,
         name: i.name,
         goal: i.goal,
-        raised: i.raised,
-        status: i.raised >= i.goal ? "COMPLETED" : "IN_PROGRESS",
+        status: i.status,
       },
     });
     console.log(`Iniciativa: ${ini.name}`);
@@ -103,18 +102,19 @@ async function main() {
 
   // Movimentações financeiras
   const tesoureiro = await prisma.user.findFirst({ where: { email: "tesoureiro@demo.com", organizationId: org.id } });
+  const initiative = await prisma.initiative.findFirst({ where: { projectId: project.id } });
 
   await prisma.financialEntry.createMany({
     data: [
-      { projectId: project.id, organizationId: org.id, createdById: tesoureiro!.id, description: "Doação membro João", amount: 500, category: "Doação", date: new Date("2025-02-01") },
-      { projectId: project.id, organizationId: org.id, createdById: tesoureiro!.id, description: "Campanha online", amount: 3200, category: "Campanha", date: new Date("2025-03-15") },
+      { projectId: project.id, organizationId: org.id, createdById: tesoureiro!.id, initiativeId: initiative!.id, description: "Doação membro João", amount: 500, date: new Date("2025-02-01") },
+      { projectId: project.id, organizationId: org.id, createdById: tesoureiro!.id, initiativeId: initiative!.id, description: "Campanha online", amount: 3200, date: new Date("2025-03-15") },
     ],
   });
 
   await prisma.financialExit.createMany({
     data: [
-      { projectId: project.id, organizationId: org.id, createdById: tesoureiro!.id, description: "Tintas e materiais", amount: 1800, category: "Material", supplier: "Tudo Tinta Ltda", date: new Date("2025-02-10") },
-      { projectId: project.id, organizationId: org.id, createdById: tesoureiro!.id, description: "Mão de obra pintura", amount: 2000, category: "Serviço", supplier: "Pinturas Silva", date: new Date("2025-02-20") },
+      { projectId: project.id, organizationId: org.id, createdById: tesoureiro!.id, initiativeId: initiative!.id, description: "Tintas e materiais", amount: 1800, supplier: "Tudo Tinta Ltda", date: new Date("2025-02-10") },
+      { projectId: project.id, organizationId: org.id, createdById: tesoureiro!.id, initiativeId: initiative!.id, description: "Mão de obra pintura", amount: 2000, supplier: "Pinturas Silva", date: new Date("2025-02-20") },
     ],
   });
 
