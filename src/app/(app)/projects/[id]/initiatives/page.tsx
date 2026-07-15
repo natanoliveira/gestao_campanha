@@ -848,9 +848,18 @@ function FinancialInlineTable({ rows, onDelete, isExit }: {
               <td className="px-3 py-2 text-right font-medium">{fmt(Number(row.amount))}</td>
               {role === "ADMIN" && (
                 <td className="px-3 py-2 text-right">
-                  <button onClick={() => onDelete(row.id)} className="text-destructive hover:opacity-80 cursor-pointer">
-                    <Trash2 className="size-3.5" />
-                  </button>
+                  <ConfirmDialog
+                    trigger={
+                      <button className="text-destructive hover:opacity-80 cursor-pointer">
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    }
+                    title="Remover lançamento?"
+                    description="Deseja remover este lançamento? Esta ação não pode ser desfeita."
+                    confirmLabel="Remover"
+                    variant="destructive"
+                    onConfirm={() => Promise.resolve(onDelete(row.id))}
+                  />
                 </td>
               )}
             </tr>
