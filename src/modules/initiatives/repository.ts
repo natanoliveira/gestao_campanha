@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import type { CreateInitiativeDTO, UpdateInitiativeDTO, ListInitiativesDTO } from "./dto";
 
-const select = {
+const baseSelect = {
   id: true, projectId: true, organizationId: true,
   name: true, description: true,
-  goal: true, minGoal: true, raised: true,
+  goal: true, minGoal: true,
   priority: true, status: true,
   responsibleId: true, dependsOnId: true,
   createdAt: true, deletedAt: true,
@@ -12,7 +12,14 @@ const select = {
 
 export const initiativeRepository = {
   findById(id: string, projectId: string, organizationId: string) {
-    return prisma.initiative.findFirst({ where: { id, projectId, organizationId, deletedAt: null }, select });
+    return prisma.initiative.findFirst({
+      where: { id, projectId, organizationId, deletedAt: null },
+      select: {
+        ...baseSelect,
+        entries: { where: { deletedAt: null }, select: { amount: true } },
+        exits:   { where: { deletedAt: null }, select: { amount: true } },
+      },
+    });
   },
 
   async list(projectId: string, organizationId: string, params: ListInitiativesDTO) {
@@ -27,7 +34,11 @@ export const initiativeRepository = {
     const limit = Math.min(100, params.limit ?? 50);
     const [data, total] = await Promise.all([
       prisma.initiative.findMany({
-        where, select,
+        where,
+        select: {
+          ...baseSelect,
+          entries: { where: { deletedAt: null }, select: { amount: true } },
+        },
         skip: (page - 1) * limit, take: limit,
         orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
       }),
@@ -37,14 +48,37 @@ export const initiativeRepository = {
   },
 
   create(data: CreateInitiativeDTO & { projectId: string; organizationId: string }) {
-    return prisma.initiative.create({ data, select });
+    return prisma.initiative.create({
+      data,
+      select: {
+        ...baseSelect,
+        entries: { where: { deletedAt: null }, select: { amount: true } },
+        exits:   { where: { deletedAt: null }, select: { amount: true } },
+      },
+    });
   },
 
   update(id: string, data: UpdateInitiativeDTO) {
-    return prisma.initiative.update({ where: { id }, data, select });
+    return prisma.initiative.update({
+      where: { id },
+      data,
+      select: {
+        ...baseSelect,
+        entries: { where: { deletedAt: null }, select: { amount: true } },
+        exits:   { where: { deletedAt: null }, select: { amount: true } },
+      },
+    });
   },
 
   softDelete(id: string) {
-    return prisma.initiative.update({ where: { id }, data: { deletedAt: new Date() }, select });
+    return prisma.initiative.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+      select: {
+        ...baseSelect,
+        entries: { where: { deletedAt: null }, select: { amount: true } },
+        exits:   { where: { deletedAt: null }, select: { amount: true } },
+      },
+    });
   },
 };

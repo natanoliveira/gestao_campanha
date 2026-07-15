@@ -4,14 +4,23 @@ import { AppError } from "@/lib/errors";
 import type { CreateInitiativeDTO, UpdateInitiativeDTO, ListInitiativesDTO } from "./dto";
 
 export const initiativeService = {
-  list(projectId: string, organizationId: string, params: ListInitiativesDTO) {
-    return initiativeRepository.list(projectId, organizationId, params);
+  async list(projectId: string, organizationId: string, params: ListInitiativesDTO) {
+    const result = await initiativeRepository.list(projectId, organizationId, params);
+    return {
+      ...result,
+      data: result.data.map(({ entries, ...init }) => ({
+        ...init,
+        raised: entries.reduce((s, e) => s + Number(e.amount), 0),
+      })),
+    };
   },
 
   async findById(id: string, projectId: string, organizationId: string) {
-    const init = await initiativeRepository.findById(id, projectId, organizationId);
-    if (!init) throw new AppError("Iniciativa não encontrada", 404, "NOT_FOUND");
-    return init;
+    const initiative = await initiativeRepository.findById(id, projectId, organizationId);
+    if (!initiative) throw new AppError("Iniciativa não encontrada", 404, "NOT_FOUND");
+    const raised = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
+    const spent  = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
+    return { ...initiative, raised, spent };
   },
 
   async create(projectId: string, organizationId: string, dto: CreateInitiativeDTO) {
@@ -27,7 +36,10 @@ export const initiativeService = {
       });
       if (!user) throw new AppError("Responsável não encontrado nesta organização", 400, "BAD_REQUEST");
     }
-    return initiativeRepository.create({ ...dto, projectId, organizationId });
+    const initiative = await initiativeRepository.create({ ...dto, projectId, organizationId });
+    const raised = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
+    const spent  = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
+    return { ...initiative, raised, spent };
   },
 
   async update(id: string, projectId: string, organizationId: string, dto: UpdateInitiativeDTO) {
@@ -45,7 +57,10 @@ export const initiativeService = {
       });
       if (!user) throw new AppError("Responsável não encontrado nesta organização", 400, "BAD_REQUEST");
     }
-    return initiativeRepository.update(id, dto);
+    const initiative = await initiativeRepository.update(id, dto);
+    const raised = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
+    const spent  = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
+    return { ...initiative, raised, spent };
   },
 
   async remove(id: string, projectId: string, organizationId: string) {

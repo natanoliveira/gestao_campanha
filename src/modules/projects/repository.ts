@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { CreateProjectDTO, UpdateProjectDTO } from "./dto";
 
-const initSelect = { id: true, name: true, goal: true, raised: true, status: true, description: true, priority: true } as const;
+const initSelect = { id: true, name: true, goal: true, status: true, description: true, priority: true } as const;
 
 export const projectRepository = {
   async list(organizationId: string, opts: { status?: string; q?: string; skip: number; take: number }) {
@@ -19,7 +19,7 @@ export const projectRepository = {
         take: opts.take,
         select: {
           id: true, name: true, status: true, description: true, coverImage: true, isPublic: true, publicSlug: true, updatedAt: true,
-          initiatives: { where: { deletedAt: null }, select: { goal: true, raised: true } },
+          initiatives: { where: { deletedAt: null }, select: { goal: true, entries: { where: { deletedAt: null }, select: { amount: true } } } },
         },
       }),
       prisma.project.count({ where }),
@@ -50,12 +50,22 @@ export const projectRepository = {
         financialEntries: {
           where: { deletedAt: null },
           orderBy: { date: "desc" },
-          select: { id: true, description: true, amount: true, date: true, category: true },
+          select: {
+            id: true, description: true, amount: true, date: true,
+            categoryId: true, initiativeId: true,
+            category: { select: { id: true, name: true } },
+            initiative: { select: { id: true, name: true } },
+          },
         },
         financialExits: {
           where: { deletedAt: null },
           orderBy: { date: "desc" },
-          select: { id: true, description: true, amount: true, date: true, category: true, supplier: true },
+          select: {
+            id: true, description: true, amount: true, date: true,
+            categoryId: true, supplier: true, initiativeId: true,
+            category: { select: { id: true, name: true } },
+            initiative: { select: { id: true, name: true } },
+          },
         },
       },
     });
