@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { MessageSquare, ExternalLink } from "lucide-react";
+import { MessageSquare, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { KPICard } from "@/components/shared/kpi-card";
@@ -69,6 +70,12 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={cn("rounded bg-border/40 animate-pulse", className)} />;
 }
 
+function getToken() { return localStorage.getItem("access_token") ?? "" }
+function currentRole(): string { try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? "" } catch { return "" } }
+
+const inputCls    = "w-full h-8 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors"
+const textareaCls = "w-full px-3 py-2 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors resize-none"
+
 /* ── tab types ── */
 type Tab = "resumo" | "iniciativas" | "timeline" | "contas";
 const TABS: { id: Tab; label: string }[] = [
@@ -109,13 +116,14 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [tab, setTab] = useState<Tab>("resumo");
 
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token || !id) return;
-    fetch(`/api/v1/projects/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+  const load = useCallback(() => {
+    if (!id) return;
+    fetch(`/api/v1/projects/${id}`, { headers: { Authorization: `Bearer ${getToken()}` } })
       .then((r) => r.json())
       .then(setProject);
   }, [id]);
+
+  useEffect(() => { load(); }, [load]);
 
   /* derived stats */
   const totalGoal   = project?.initiatives?.reduce((s, i) => s + Number(i.goal),   0) ?? 0;
@@ -259,66 +267,276 @@ export default function ProjectDetailPage() {
 
         {/* TIMELINE */}
         {tab === "timeline" && (
-          <div className="bg-card border border-border rounded-lg px-5 py-1 max-w-2xl">
-            {project?.timelinePosts?.length === 0 && (
-              <p className="text-[13px] text-muted-foreground py-8 text-center">Sem posts na timeline.</p>
-            )}
-            {project?.timelinePosts?.map((post) => (
-              <FeedItem key={post.id} Icon={MessageSquare} author={post.author.name} time={timeAgo(post.publishedAt)} text={post.content} />
-            ))}
-          </div>
+          <TimelineTab projectId={id} posts={project?.timelinePosts ?? []} onMutate={load} />
         )}
 
         {/* PRESTAÇÃO DE CONTAS */}
         {tab === "contas" && (
-          <div className="max-w-2xl space-y-4">
-            {/* Resumo financeiro */}
-            <div className="grid grid-cols-3 gap-3">
-              <KPICard label="Entradas" value={fmt(totalIn)} />
-              <KPICard label="Saídas"   value={fmt(totalOut)} />
-              <KPICard
-                label="Saldo"
-                value={fmt(totalIn - totalOut)}
-                delta={{ label: totalIn - totalOut >= 0 ? "positivo" : "negativo", direction: totalIn - totalOut >= 0 ? "up" : "down" }}
-              />
-            </div>
+          <ContasTab
+            projectId={id}
+            entries={project?.financialEntries ?? []}
+            exits={project?.financialExits ?? []}
+            totalIn={totalIn} totalOut={totalOut}
+            onMutate={load}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
 
-            {/* Tabela unificada */}
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              {(project?.financialEntries?.length === 0 && project?.financialExits?.length === 0) && (
-                <p className="text-[13px] text-muted-foreground py-8 text-center">Sem lançamentos financeiros.</p>
-              )}
-              {(project?.financialEntries?.length ?? 0) > 0 || (project?.financialExits?.length ?? 0) > 0 ? (
-                <>
-                  {project?.financialEntries?.map((e) => (
-                    <div key={e.id} className="flex justify-between items-center px-5 py-3 border-b border-border last:border-0 text-[13px]">
-                      <div>
-                        <p>{e.description}</p>
-                        {e.category && <p className="text-[11px] text-text-subtle">{e.category}</p>}
-                      </div>
-                      <span className="font-medium text-success">+ {fmt(Number(e.amount))}</span>
-                    </div>
-                  ))}
-                  {project?.financialExits?.map((e) => (
-                    <div key={e.id} className="flex justify-between items-center px-5 py-3 border-b border-border last:border-0 text-[13px]">
-                      <div>
-                        <p>{e.description}</p>
-                        {e.supplier && <p className="text-[11px] text-text-subtle">{e.supplier}</p>}
-                      </div>
-                      <span className="font-medium text-destructive">− {fmt(Number(e.amount))}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between items-center px-5 py-3 border-t border-border text-[13px] font-semibold">
-                    <span>Saldo atual</span>
-                    <span className={totalIn - totalOut >= 0 ? "text-success" : "text-destructive"}>
-                      {fmt(totalIn - totalOut)}
-                    </span>
-                  </div>
-                </>
-              ) : null}
+/* ── TimelineTab ── */
+function TimelineTab({ projectId, posts, onMutate }: {
+  projectId: string;
+  posts: TimelinePost[];
+  onMutate: () => void;
+}) {
+  const [content, setContent] = useState("");
+  const [saving, setSaving]   = useState(false);
+  const role = currentRole();
+  const canPost = role === "ADMIN" || role === "MANAGER";
+
+  async function submit(e: React.SyntheticEvent) {
+    e.preventDefault();
+    if (!content.trim()) return;
+    setSaving(true);
+    await fetch(`/api/v1/projects/${projectId}/timeline`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ content }),
+    });
+    setContent("");
+    setSaving(false);
+    onMutate();
+  }
+
+  async function del(postId: string) {
+    await fetch(`/api/v1/projects/${projectId}/timeline/${postId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    onMutate();
+  }
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      {canPost && (
+        <form onSubmit={submit} className="space-y-2">
+          <textarea
+            className={textareaCls}
+            rows={3}
+            placeholder="Escreva uma atualização..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+          <button
+            type="submit"
+            disabled={saving || !content.trim()}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] bg-primary text-primary-foreground rounded-lg disabled:opacity-50 cursor-pointer"
+          >
+            {saving ? <Spinner className="size-3" /> : <Plus className="size-3" />}
+            Publicar
+          </button>
+        </form>
+      )}
+      <div className="bg-card border border-border rounded-lg px-4 py-1">
+        {posts.length === 0 && (
+          <p className="text-[13px] text-muted-foreground py-6 text-center">Sem posts ainda.</p>
+        )}
+        {posts.map((post) => (
+          <div key={post.id} className="flex gap-3 py-3 border-b border-border last:border-0">
+            <div className="size-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+              <MessageSquare className="size-3.5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-text-subtle">{post.author.name} · {timeAgo(post.publishedAt)}</span>
+                {role === "ADMIN" && (
+                  <button onClick={() => del(post.id)} className="text-destructive hover:opacity-80 cursor-pointer">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                )}
+              </div>
+              <p className="text-[13px] mt-0.5">{post.content}</p>
             </div>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── ContasTab ── */
+type ContasTabProps = {
+  projectId: string;
+  entries: FinancialRow[];
+  exits: FinancialRow[];
+  totalIn: number;
+  totalOut: number;
+  onMutate: () => void;
+};
+
+function FinancialForm({ label, endpoint, onMutate, isExit }: {
+  label: string; endpoint: string; onMutate: () => void; isExit?: boolean;
+}) {
+  const [open, setOpen]           = useState(false);
+  const [description, setDesc]    = useState("");
+  const [amount, setAmount]       = useState("");
+  const [date, setDate]           = useState("");
+  const [category, setCategory]   = useState("");
+  const [supplier, setSupplier]   = useState("");
+  const [saving, setSaving]       = useState(false);
+
+  async function submit(e: React.SyntheticEvent) {
+    e.preventDefault();
+    setSaving(true);
+    await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ description, amount: Number(amount), date, category: category || undefined, supplier: supplier || undefined }),
+    });
+    setDesc(""); setAmount(""); setDate(""); setCategory(""); setSupplier("");
+    setSaving(false);
+    setOpen(false);
+    onMutate();
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-[12px] text-primary hover:underline cursor-pointer mb-2"
+      >
+        <Plus className="size-3" /> {label}
+      </button>
+      {open && (
+        <form onSubmit={submit} className="bg-surface-2 border border-border rounded-lg p-3 space-y-2 mb-3">
+          <div className="grid grid-cols-2 gap-2">
+            <input className={inputCls} placeholder="Descrição" value={description} onChange={(e) => setDesc(e.target.value)} required />
+            <input className={inputCls} type="number" step="0.01" placeholder="Valor (R$)" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input className={inputCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <input className={inputCls} placeholder="Categoria" value={category} onChange={(e) => setCategory(e.target.value)} />
+          </div>
+          {isExit && <input className={inputCls} placeholder="Fornecedor" value={supplier} onChange={(e) => setSupplier(e.target.value)} />}
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving} className="px-3 py-1.5 text-[12px] bg-primary text-primary-foreground rounded-lg disabled:opacity-50 cursor-pointer">
+              {saving ? "Salvando..." : "Salvar"}
+            </button>
+            <button type="button" onClick={() => setOpen(false)} className="px-3 py-1.5 text-[12px] border border-border rounded-lg cursor-pointer">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function FinancialTable({ rows, endpoint, onMutate }: {
+  rows: FinancialRow[]; endpoint: string; onMutate: () => void;
+}) {
+  const role = currentRole();
+
+  async function del(rowId: string) {
+    await fetch(`${endpoint}/${rowId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    onMutate();
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <table className="w-full text-[13px]">
+        <thead>
+          <tr className="border-b border-border bg-surface-2">
+            <th className="text-left px-3 py-2 text-text-subtle font-medium">Descrição</th>
+            <th className="text-left px-3 py-2 text-text-subtle font-medium">Data</th>
+            <th className="text-left px-3 py-2 text-text-subtle font-medium">Categoria</th>
+            <th className="text-right px-3 py-2 text-text-subtle font-medium">Valor</th>
+            {role === "ADMIN" && <th className="px-3 py-2" />}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">Nenhum lançamento.</td></tr>
+          )}
+          {rows.map((row) => (
+            <tr key={row.id} className="border-b border-border last:border-0 hover:bg-surface-2/50">
+              <td className="px-3 py-2">{row.description}</td>
+              <td className="px-3 py-2 text-text-subtle">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
+              <td className="px-3 py-2 text-text-subtle">{row.category ?? "—"}</td>
+              <td className="px-3 py-2 text-right font-medium">{fmt(Number(row.amount))}</td>
+              {role === "ADMIN" && (
+                <td className="px-3 py-2 text-right">
+                  <button onClick={() => del(row.id)} className="text-destructive hover:opacity-80 cursor-pointer">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ContasTab({ projectId, entries, exits, totalIn, totalOut, onMutate }: ContasTabProps) {
+  const role = currentRole();
+  const canAdd = role === "ADMIN" || role === "MANAGER";
+  const balance = totalIn - totalOut;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-card border border-border rounded-lg p-4">
+          <p className="text-[11px] text-text-subtle mb-1">Total Entradas</p>
+          <p className="text-[18px] font-semibold text-success">{fmt(totalIn)}</p>
+        </div>
+        <div className="bg-card border border-border rounded-lg p-4">
+          <p className="text-[11px] text-text-subtle mb-1">Total Saídas</p>
+          <p className="text-[18px] font-semibold text-destructive">{fmt(totalOut)}</p>
+        </div>
+        <div className="bg-card border border-border rounded-lg p-4">
+          <p className="text-[11px] text-text-subtle mb-1">Saldo</p>
+          <p className={cn("text-[18px] font-semibold", balance >= 0 ? "text-success" : "text-destructive")}>{fmt(balance)}</p>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[13px] font-medium mb-2">Entradas</p>
+        {canAdd && (
+          <FinancialForm
+            label="Adicionar entrada"
+            endpoint={`/api/v1/projects/${projectId}/financial-entries`}
+            onMutate={onMutate}
+          />
         )}
+        <FinancialTable
+          rows={entries}
+          endpoint={`/api/v1/projects/${projectId}/financial-entries`}
+          onMutate={onMutate}
+        />
+      </div>
+
+      <div>
+        <p className="text-[13px] font-medium mb-2">Saídas</p>
+        {canAdd && (
+          <FinancialForm
+            label="Adicionar saída"
+            endpoint={`/api/v1/projects/${projectId}/financial-exits`}
+            onMutate={onMutate}
+            isExit
+          />
+        )}
+        <FinancialTable
+          rows={exits}
+          endpoint={`/api/v1/projects/${projectId}/financial-exits`}
+          onMutate={onMutate}
+        />
       </div>
     </div>
   );
