@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export interface AppDrawerProps {
-  trigger: React.ReactElement
+  trigger?: React.ReactElement
   title: string
   description?: string
   children: React.ReactNode
   width?: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function AppDrawer({
@@ -19,10 +21,12 @@ export function AppDrawer({
   description,
   children,
   width = "480px",
+  open,
+  onOpenChange,
 }: AppDrawerProps) {
   return (
-    <Drawer.Root swipeDirection="right">
-      <Drawer.Trigger render={trigger} />
+    <Drawer.Root swipeDirection="right" open={open} onOpenChange={onOpenChange}>
+      {trigger && <Drawer.Trigger render={trigger} />}
 
       <Drawer.Portal>
         <Drawer.Backdrop
