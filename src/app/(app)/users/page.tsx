@@ -389,7 +389,11 @@ function CreateUserModal({
         throw new Error(err.message ?? "Erro ao criar usuário")
       }
       onCreated()
-      handleOpenChange(false)
+      setLoading(false)
+      onClose()
+      setForm({ name: "", email: "", password: "", role: "MEMBER" })
+      setError(null)
+      return
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ocorreu um erro")
     } finally {
@@ -494,7 +498,10 @@ function EditUserModal({
         throw new Error(err.message ?? "Erro ao atualizar usuário")
       }
       onUpdated()
-      handleOpenChange(false)
+      setLoading(false)
+      setError(null)
+      onClose()
+      return
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ocorreu um erro")
     } finally {
