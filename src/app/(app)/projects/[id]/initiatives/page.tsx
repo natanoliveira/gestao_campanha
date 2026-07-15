@@ -5,12 +5,12 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Eye, Pencil, Trash2, Plus, Search } from "lucide-react"
 import { Dialog } from "@base-ui/react/dialog"
-import { AppDrawer } from "@/components/shared/app-drawer"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Badge, type BadgeVariant } from "@/components/ui/badge"
 import { ProgressBar } from "@/components/shared/progress-bar"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
+import { CurrencyInput } from "@/components/shared/currency-input"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,13 @@ type Initiative = {
 }
 
 type SimpleUser = { id: string; name: string }
+
+type FinancialCategory = { id: string; name: string }
+type FinancialRow = {
+  id: string; description: string; amount: string; date: string;
+  category?: FinancialCategory | null; supplier?: string;
+}
+type InitiativeTab = "detalhes" | "entradas" | "despesas"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -331,10 +338,15 @@ export default function InitiativesPage() {
         init={editInit} onClose={() => setEditInit(null)} onUpdated={load}
         projectId={projectId} users={users} initiatives={initiatives ?? []}
       />
-      <InitiativeDetailDrawer
-        init={detailInit} onClose={() => setDetailInit(null)}
-        users={users} initiatives={initiatives ?? []}
-      />
+      {/* Modal de detalhe da iniciativa */}
+      <Dialog.Root open={!!detailInit} onOpenChange={(o) => { if (!o) setDetailInit(null); }}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
+          <Dialog.Popup className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-border rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col outline-none">
+            {detailInit && <InitiativeModal init={detailInit} projectId={projectId} onClose={() => setDetailInit(null)} onMutate={load} />}
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   )
 }
@@ -374,21 +386,18 @@ function InitiativeFormFields({
       <div className="grid grid-cols-4 gap-2">
         <div>
           <FieldLabel>Meta (R$) *</FieldLabel>
-          <input required type="number" min="0.01" step="0.01" value={form.goal}
-            onChange={e => setForm(f => ({ ...f, goal: e.target.value }))}
-            className={inputCls} />
+          <CurrencyInput required value={form.goal}
+            onChange={v => setForm(f => ({ ...f, goal: v }))} />
         </div>
         <div>
           <FieldLabel>Meta mín. (R$)</FieldLabel>
-          <input type="number" min="0" step="0.01" value={form.minGoal}
-            onChange={e => setForm(f => ({ ...f, minGoal: e.target.value }))}
-            className={inputCls} />
+          <CurrencyInput value={form.minGoal}
+            onChange={v => setForm(f => ({ ...f, minGoal: v }))} />
         </div>
         <div>
           <FieldLabel>Arrecadado (R$)</FieldLabel>
-          <input type="number" min="0" step="0.01" value={form.raised}
-            onChange={e => setForm(f => ({ ...f, raised: e.target.value }))}
-            className={inputCls} />
+          <CurrencyInput value={form.raised}
+            onChange={v => setForm(f => ({ ...f, raised: v }))} />
         </div>
         <div>
           <FieldLabel>Prioridade</FieldLabel>
@@ -590,79 +599,265 @@ function EditInitiativeModal({
   )
 }
 
-function InitiativeDetailDrawer({
-  init, onClose, users, initiatives,
-}: {
-  init: Initiative | null; onClose: () => void
-  users: SimpleUser[]; initiatives: Initiative[]
+function InitiativeModal({ init, projectId, onClose, onMutate }: {
+  init: Initiative; projectId: string; onClose: () => void; onMutate: () => void;
 }) {
-  const fmtDate = (d: string) =>
-    new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
+  const [tab, setTab]         = useState<InitiativeTab>("detalhes");
+  const [entries, setEntries] = useState<FinancialRow[]>([]);
+  const [exits, setExits]     = useState<FinancialRow[]>([]);
+  const [cats, setCats]       = useState<FinancialCategory[]>([]);
+  const role                  = currentRole();
+  const canAdd                = role === "ADMIN" || role === "MANAGER";
 
-  const responsible = users.find(u => u.id === init?.responsibleId)
-  const dependsOn   = initiatives.find(i => i.id === init?.dependsOnId)
-  const p           = init ? pct(init.raised, init.goal) : 0
+  const loadEntries = useCallback(() => {
+    fetch(`/api/v1/projects/${projectId}/initiatives/${init.id}/entries`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }).then((r) => r.json()).then((d) => setEntries(Array.isArray(d) ? d : []));
+  }, [projectId, init.id]);
+
+  const loadExits = useCallback(() => {
+    fetch(`/api/v1/projects/${projectId}/initiatives/${init.id}/exits`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }).then((r) => r.json()).then((d) => setExits(Array.isArray(d) ? d : []));
+  }, [projectId, init.id]);
+
+  function loadCats(type: "ENTRY" | "EXIT") {
+    fetch(`/api/v1/financial-categories?type=${type}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }).then((r) => r.json()).then((d) => setCats(Array.isArray(d) ? d : []));
+  }
+
+  useEffect(() => { if (tab === "entradas") { loadEntries(); loadCats("ENTRY"); } }, [tab]); // eslint-disable-line
+  useEffect(() => { if (tab === "despesas") { loadExits();   loadCats("EXIT");  } }, [tab]); // eslint-disable-line
+
+  const raised = entries.reduce((s, e) => s + Number(e.amount), 0);
+  const spent  = exits.reduce((s, e) => s + Number(e.amount), 0);
+
+  const MODAL_TABS: { id: InitiativeTab; label: string }[] = [
+    { id: "detalhes", label: "Detalhes" },
+    { id: "entradas", label: "Entradas" },
+    { id: "despesas", label: "Despesas" },
+  ];
+
+  // ponytail: onMutate available for future use (e.g. after inline edits)
+  void onMutate;
 
   return (
-    <AppDrawer
-      open={!!init}
-      onOpenChange={next => { if (!next) onClose() }}
-      title="Detalhes da Iniciativa"
-      description={init?.name}
-    >
-      {init && (
-        <div className="space-y-0 px-6 py-4">
-          {/* Progresso */}
-          <div className="mb-5">
-            <div className="flex justify-between text-[12px] text-muted-foreground mb-1.5">
-              <span>{fmt(init.raised)} arrecadados</span>
-              <span>{p}%</span>
-            </div>
-            <ProgressBar value={p} variant={progressVariant(p)} />
-            <div className="text-[12px] text-muted-foreground mt-1">
-              Meta: {fmt(init.goal)}
-              {init.minGoal && ` · Mínima: ${fmt(init.minGoal)}`}
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+        <div>
+          <p className="text-[11px] text-text-subtle mb-0.5">Iniciativa</p>
+          <h2 className="text-[15px] font-semibold">{init.name}</h2>
+        </div>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer text-[20px] leading-none">×</button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-0 border-b border-border px-5 shrink-0">
+        {MODAL_TABS.map(({ id, label }) => (
+          <button key={id} onClick={() => setTab(id)}
+            className={cn("px-3 py-2.5 text-[13px] border-b-2 -mb-px transition-colors cursor-pointer",
+              tab === id ? "text-foreground border-primary" : "text-muted-foreground border-transparent hover:text-foreground")}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="overflow-y-auto flex-1 px-5 py-4">
+
+        {/* Aba Detalhes */}
+        {tab === "detalhes" && (
+          <div className="space-y-3 text-[13px]">
+            {init.description && <p className="text-muted-foreground">{init.description}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-surface-2 rounded-lg p-3">
+                <p className="text-[11px] text-text-subtle mb-1">Meta</p>
+                <p className="font-semibold">{fmt(Number(init.goal))}</p>
+              </div>
+              {init.minGoal && (
+                <div className="bg-surface-2 rounded-lg p-3">
+                  <p className="text-[11px] text-text-subtle mb-1">Meta mínima</p>
+                  <p className="font-semibold">{fmt(Number(init.minGoal))}</p>
+                </div>
+              )}
+              <div className="bg-surface-2 rounded-lg p-3">
+                <p className="text-[11px] text-text-subtle mb-1">Status</p>
+                <p className="font-semibold">{init.status}</p>
+              </div>
+              <div className="bg-surface-2 rounded-lg p-3">
+                <p className="text-[11px] text-text-subtle mb-1">Prioridade</p>
+                <p className="font-semibold">{init.priority}</p>
+              </div>
             </div>
           </div>
+        )}
 
-          <DrawerRow label="Status">
-            <Badge variant={STATUS_MAP[init.status].variant}>{STATUS_MAP[init.status].label}</Badge>
-          </DrawerRow>
-          <DrawerRow label="Prioridade">
-            <span className="text-[13px] text-foreground">{init.priority}</span>
-          </DrawerRow>
-          <DrawerRow label="Responsável">
-            <span className="text-[13px] text-foreground">{responsible?.name ?? "—"}</span>
-          </DrawerRow>
-          <DrawerRow label="Depende de">
-            <span className="text-[13px] text-foreground">{dependsOn?.name ?? "—"}</span>
-          </DrawerRow>
-          {init.description && (
-            <div className="py-3 border-b border-border">
-              <p className="text-[12px] text-muted-foreground mb-1">Descrição</p>
-              <p className="text-[13px] text-foreground leading-relaxed">{init.description}</p>
+        {/* Aba Entradas */}
+        {tab === "entradas" && (
+          <div className="space-y-3">
+            <div className="bg-surface-2 rounded-lg p-3 text-[13px]">
+              <p className="text-[11px] text-text-subtle mb-1">Total Arrecadado</p>
+              <p className="text-[18px] font-semibold text-success">{fmt(raised)}</p>
             </div>
-          )}
-          <DrawerRow label="Criada em">
-            <span className="text-[13px] text-foreground">{fmtDate(init.createdAt)}</span>
-          </DrawerRow>
-          {init.deletedAt && (
-            <DrawerRow label="Situação">
-              <Badge variant="danger">Removida</Badge>
-            </DrawerRow>
-          )}
-        </div>
-      )}
-    </AppDrawer>
-  )
+            {canAdd && (
+              <FinancialInlineForm
+                endpoint={`/api/v1/projects/${projectId}/initiatives/${init.id}/entries`}
+                categories={cats}
+                onSuccess={loadEntries}
+                label="Registrar entrada"
+              />
+            )}
+            <FinancialInlineTable rows={entries} onDelete={async (rowId) => {
+              await fetch(`/api/v1/projects/${projectId}/initiatives/${init.id}/entries/${rowId}`, {
+                method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` },
+              });
+              loadEntries();
+            }} />
+          </div>
+        )}
+
+        {/* Aba Despesas */}
+        {tab === "despesas" && (
+          <div className="space-y-3">
+            <div className="bg-surface-2 rounded-lg p-3 text-[13px]">
+              <p className="text-[11px] text-text-subtle mb-1">Total Despesas</p>
+              <p className="text-[18px] font-semibold text-destructive">{fmt(spent)}</p>
+            </div>
+            {canAdd && (
+              <FinancialInlineForm
+                endpoint={`/api/v1/projects/${projectId}/initiatives/${init.id}/exits`}
+                categories={cats}
+                onSuccess={loadExits}
+                label="Registrar despesa"
+                isExit
+              />
+            )}
+            <FinancialInlineTable rows={exits} isExit onDelete={async (rowId) => {
+              await fetch(`/api/v1/projects/${projectId}/initiatives/${init.id}/exits/${rowId}`, {
+                method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` },
+              });
+              loadExits();
+            }} />
+          </div>
+        )}
+      </div>
+    </>
+  );
 }
 
-function DrawerRow({ label, children }: { label: string; children: React.ReactNode }) {
+function FinancialInlineForm({ endpoint, categories, onSuccess, label, isExit }: {
+  endpoint: string; categories: FinancialCategory[]; onSuccess: () => void; label: string; isExit?: boolean;
+}) {
+  const [open, setOpen]         = useState(false);
+  const [desc, setDesc]         = useState("");
+  const [amount, setAmount]     = useState("");
+  const [date, setDate]         = useState("");
+  const [catId, setCatId]       = useState("");
+  const [supplier, setSupplier] = useState("");
+  const [saving, setSaving]     = useState(false);
+
+  const inCls = "w-full h-8 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors";
+
+  async function submit(e: React.SyntheticEvent) {
+    e.preventDefault();
+    setSaving(true);
+    const dateIso = new Date(date + "T12:00:00.000Z").toISOString();
+    await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({
+        description: desc, amount: Number(amount), date: dateIso,
+        categoryId: catId || undefined,
+        supplier: isExit ? (supplier || undefined) : undefined,
+      }),
+    });
+    setDesc(""); setAmount(""); setDate(""); setCatId(""); setSupplier("");
+    setSaving(false);
+    setOpen(false);
+    onSuccess();
+  }
+
   return (
-    <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
-      <span className="text-[13px] text-muted-foreground">{label}</span>
-      {children}
+    <div>
+      <button onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-[12px] text-primary hover:underline cursor-pointer mb-2">
+        <Plus className="size-3" /> {label}
+      </button>
+      {open && (
+        <form onSubmit={submit} className="bg-surface-2 border border-border rounded-lg p-3 space-y-2 mb-3">
+          <div className="grid grid-cols-2 gap-2">
+            <input className={inCls} placeholder="Descrição" value={desc} onChange={(e) => setDesc(e.target.value)} required />
+            <CurrencyInput value={amount} onChange={setAmount} placeholder="Valor (R$)" required />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input className={inCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <select className={inCls} value={catId} onChange={(e) => setCatId(e.target.value)}>
+              <option value="">Sem categoria</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          {isExit && (
+            <input className={inCls} placeholder="Fornecedor" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+          )}
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving}
+              className="px-3 py-1.5 text-[12px] bg-primary text-primary-foreground rounded-lg disabled:opacity-50 cursor-pointer">
+              {saving ? "Salvando..." : "Salvar"}
+            </button>
+            <button type="button" onClick={() => setOpen(false)}
+              className="px-3 py-1.5 text-[12px] border border-border rounded-lg cursor-pointer">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
     </div>
-  )
+  );
+}
+
+function FinancialInlineTable({ rows, onDelete, isExit }: {
+  rows: FinancialRow[]; onDelete: (id: string) => void; isExit?: boolean;
+}) {
+  const role = currentRole();
+
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <table className="w-full text-[13px]">
+        <thead>
+          <tr className="border-b border-border bg-surface-2">
+            <th className="text-left px-3 py-2 text-text-subtle font-medium">Descrição</th>
+            <th className="text-left px-3 py-2 text-text-subtle font-medium">Categoria</th>
+            {isExit && <th className="text-left px-3 py-2 text-text-subtle font-medium">Fornecedor</th>}
+            <th className="text-left px-3 py-2 text-text-subtle font-medium">Data</th>
+            <th className="text-right px-3 py-2 text-text-subtle font-medium">Valor</th>
+            {role === "ADMIN" && <th className="px-3 py-2 w-8" />}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr><td colSpan={isExit ? 6 : 5} className="px-3 py-6 text-center text-muted-foreground">Nenhum lançamento.</td></tr>
+          )}
+          {rows.map((row) => (
+            <tr key={row.id} className="border-b border-border last:border-0 hover:bg-surface-2/50">
+              <td className="px-3 py-2">{row.description}</td>
+              <td className="px-3 py-2 text-text-subtle">{row.category?.name ?? "—"}</td>
+              {isExit && <td className="px-3 py-2 text-text-subtle">{row.supplier ?? "—"}</td>}
+              <td className="px-3 py-2 text-text-subtle">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
+              <td className="px-3 py-2 text-right font-medium">{fmt(Number(row.amount))}</td>
+              {role === "ADMIN" && (
+                <td className="px-3 py-2 text-right">
+                  <button onClick={() => onDelete(row.id)} className="text-destructive hover:opacity-80 cursor-pointer">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
