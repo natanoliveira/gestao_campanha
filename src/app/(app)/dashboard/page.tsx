@@ -30,6 +30,8 @@ type StatsActivity = {
   projectName: string;
 };
 
+type CategoryStat = { categoryId: string | null; categoryName: string | null; total: number; count: number };
+
 type Stats = {
   projectsActive: number;
   projectsTotal: number;
@@ -40,6 +42,8 @@ type Stats = {
   initiativesTotal: number;
   recentProjects: StatsProject[];
   recentActivity: StatsActivity[];
+  entriesByCategory: CategoryStat[];
+  exitsByCategory:   CategoryStat[];
 };
 
 const STATUS_MAP: Record<ProjectStatus, { variant: BadgeVariant; label: string }> = {
@@ -152,6 +156,48 @@ export default function DashboardPage() {
             ))
           )}
         </div>
+
+        {/* ── Breakdown por categoria ── */}
+        {stats && ((stats.entriesByCategory?.length ?? 0) > 0 || (stats.exitsByCategory?.length ?? 0) > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {stats.entriesByCategory?.length > 0 && (
+              <div className="bg-card border border-border rounded-lg overflow-hidden">
+                <p className="text-[11px] font-medium text-text-subtle px-4 py-2 border-b border-border bg-surface-2">
+                  Entradas por Categoria
+                </p>
+                <table className="w-full text-[13px]">
+                  <tbody>
+                    {stats.entriesByCategory.map((r, i) => (
+                      <tr key={i} className="border-b border-border last:border-0">
+                        <td className="px-4 py-2">{r.categoryName ?? <span className="text-text-subtle italic">Sem categoria</span>}</td>
+                        <td className="px-4 py-2 text-right text-text-subtle">{r.count}×</td>
+                        <td className="px-4 py-2 text-right font-medium text-success">{fmt(r.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {stats.exitsByCategory?.length > 0 && (
+              <div className="bg-card border border-border rounded-lg overflow-hidden">
+                <p className="text-[11px] font-medium text-text-subtle px-4 py-2 border-b border-border bg-surface-2">
+                  Despesas por Categoria
+                </p>
+                <table className="w-full text-[13px]">
+                  <tbody>
+                    {stats.exitsByCategory.map((r, i) => (
+                      <tr key={i} className="border-b border-border last:border-0">
+                        <td className="px-4 py-2">{r.categoryName ?? <span className="text-text-subtle italic">Sem categoria</span>}</td>
+                        <td className="px-4 py-2 text-right text-text-subtle">{r.count}×</td>
+                        <td className="px-4 py-2 text-right font-medium text-destructive">{fmt(r.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Grid 2 cols ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

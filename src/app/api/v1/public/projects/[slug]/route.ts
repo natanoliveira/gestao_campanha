@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
         initiatives: {
           where: { deletedAt: null },
           orderBy: { priority: "asc" },
-          select: { id: true, name: true, goal: true, raised: true, status: true },
+          select: { id: true, name: true, goal: true, status: true },
         },
         timelinePosts: {
           where: { deletedAt: null },
@@ -43,9 +43,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
     if (!project) throw new AppError("Portal não encontrado", 404, "NOT_FOUND");
 
-    const totalGoal   = project.initiatives.reduce((s, i) => s + Number(i.goal),   0);
-    const totalRaised = project.initiatives.reduce((s, i) => s + Number(i.raised), 0);
+    const totalGoal   = project.initiatives.reduce((s, i) => s + Number(i.goal), 0);
     const totalIn     = project.financialEntries.reduce((s, e) => s + Number(e.amount), 0);
+    const totalRaised = totalIn; // ponytail: raised removed from Initiative; entries sum is the source of truth
     const totalOut    = project.financialExits.reduce((s, e)   => s + Number(e.amount), 0);
 
     return Response.json({

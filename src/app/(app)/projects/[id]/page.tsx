@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { MessageSquare, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/shared/progress-bar";
@@ -25,8 +25,11 @@ type TimelinePost = {
 };
 type FinancialRow = {
   id: string; description: string; amount: string; date: string;
-  category?: string; supplier?: string;
+  category?: { id: string; name: string } | null;
+  initiative?: { id: string; name: string } | null;
+  supplier?: string;
 };
+type ReportRow = { categoryId: string | null; categoryName: string | null; total: number; count: number };
 type Project = {
   id: string; name: string; description?: string;
   status: ProjectStatus; isPublic: boolean; publicSlug?: string;
@@ -73,7 +76,6 @@ function Skeleton({ className }: { className?: string }) {
 function getToken() { return localStorage.getItem("access_token") ?? "" }
 function currentRole(): string { try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? "" } catch { return "" } }
 
-const inputCls    = "w-full h-8 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors"
 const textareaCls = "w-full px-3 py-2 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors resize-none"
 
 /* ── tab types ── */
@@ -277,7 +279,6 @@ export default function ProjectDetailPage() {
             entries={project?.financialEntries ?? []}
             exits={project?.financialExits ?? []}
             totalIn={totalIn} totalOut={totalOut}
-            onMutate={load}
           />
         )}
       </div>
@@ -366,116 +367,33 @@ function TimelineTab({ projectId, posts, onMutate }: {
   );
 }
 
-/* ── ContasTab ── */
-type ContasTabProps = {
-  projectId: string;
-  entries: FinancialRow[];
-  exits: FinancialRow[];
-  totalIn: number;
-  totalOut: number;
-  onMutate: () => void;
-};
-
-function FinancialForm({ label, endpoint, onMutate, isExit }: {
-  label: string; endpoint: string; onMutate: () => void; isExit?: boolean;
+/* ── FinancialTable — somente leitura ── */
+function FinancialTable({ rows, showCategory }: {
+  rows: FinancialRow[]; showCategory?: boolean;
 }) {
-  const [open, setOpen]           = useState(false);
-  const [description, setDesc]    = useState("");
-  const [amount, setAmount]       = useState("");
-  const [date, setDate]           = useState("");
-  const [category, setCategory]   = useState("");
-  const [supplier, setSupplier]   = useState("");
-  const [saving, setSaving]       = useState(false);
-
-  async function submit(e: React.SyntheticEvent) {
-    e.preventDefault();
-    setSaving(true);
-    await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify({ description, amount: Number(amount), date, category: category || undefined, supplier: supplier || undefined }),
-    });
-    setDesc(""); setAmount(""); setDate(""); setCategory(""); setSupplier("");
-    setSaving(false);
-    setOpen(false);
-    onMutate();
-  }
-
-  return (
-    <div>
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 text-[12px] text-primary hover:underline cursor-pointer mb-2"
-      >
-        <Plus className="size-3" /> {label}
-      </button>
-      {open && (
-        <form onSubmit={submit} className="bg-surface-2 border border-border rounded-lg p-3 space-y-2 mb-3">
-          <div className="grid grid-cols-2 gap-2">
-            <input className={inputCls} placeholder="Descrição" value={description} onChange={(e) => setDesc(e.target.value)} required />
-            <input className={inputCls} type="number" step="0.01" placeholder="Valor (R$)" value={amount} onChange={(e) => setAmount(e.target.value)} required />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <input className={inputCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-            <input className={inputCls} placeholder="Categoria" value={category} onChange={(e) => setCategory(e.target.value)} />
-          </div>
-          {isExit && <input className={inputCls} placeholder="Fornecedor" value={supplier} onChange={(e) => setSupplier(e.target.value)} />}
-          <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="px-3 py-1.5 text-[12px] bg-primary text-primary-foreground rounded-lg disabled:opacity-50 cursor-pointer">
-              {saving ? "Salvando..." : "Salvar"}
-            </button>
-            <button type="button" onClick={() => setOpen(false)} className="px-3 py-1.5 text-[12px] border border-border rounded-lg cursor-pointer">
-              Cancelar
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
-  );
-}
-
-function FinancialTable({ rows, endpoint, onMutate }: {
-  rows: FinancialRow[]; endpoint: string; onMutate: () => void;
-}) {
-  const role = currentRole();
-
-  async function del(rowId: string) {
-    await fetch(`${endpoint}/${rowId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
-    onMutate();
-  }
-
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <table className="w-full text-[13px]">
         <thead>
           <tr className="border-b border-border bg-surface-2">
             <th className="text-left px-3 py-2 text-text-subtle font-medium">Descrição</th>
+            <th className="text-left px-3 py-2 text-text-subtle font-medium">Iniciativa</th>
             <th className="text-left px-3 py-2 text-text-subtle font-medium">Data</th>
-            <th className="text-left px-3 py-2 text-text-subtle font-medium">Categoria</th>
+            {showCategory && <th className="text-left px-3 py-2 text-text-subtle font-medium">Categoria</th>}
             <th className="text-right px-3 py-2 text-text-subtle font-medium">Valor</th>
-            {role === "ADMIN" && <th className="px-3 py-2" />}
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
-            <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">Nenhum lançamento.</td></tr>
+            <tr><td colSpan={showCategory ? 5 : 4} className="px-3 py-6 text-center text-muted-foreground">Nenhum lançamento.</td></tr>
           )}
           {rows.map((row) => (
             <tr key={row.id} className="border-b border-border last:border-0 hover:bg-surface-2/50">
               <td className="px-3 py-2">{row.description}</td>
+              <td className="px-3 py-2 text-text-subtle">{row.initiative?.name ?? "—"}</td>
               <td className="px-3 py-2 text-text-subtle">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
-              <td className="px-3 py-2 text-text-subtle">{row.category ?? "—"}</td>
+              {showCategory && <td className="px-3 py-2 text-text-subtle">{row.category?.name ?? "—"}</td>}
               <td className="px-3 py-2 text-right font-medium">{fmt(Number(row.amount))}</td>
-              {role === "ADMIN" && (
-                <td className="px-3 py-2 text-right">
-                  <button onClick={() => del(row.id)} className="text-destructive hover:opacity-80 cursor-pointer">
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </td>
-              )}
             </tr>
           ))}
         </tbody>
@@ -484,11 +402,65 @@ function FinancialTable({ rows, endpoint, onMutate }: {
   );
 }
 
-function ContasTab({ projectId, entries, exits, totalIn, totalOut, onMutate }: ContasTabProps) {
-  const role = currentRole();
-  const canAdd = role === "ADMIN" || role === "MANAGER";
-  const balance = totalIn - totalOut;
+/* ── CategoryReport — lazy por clique ── */
+function CategoryReport({ title, url }: { title: string; url: string }) {
+  const [rows, setRows]       = useState<ReportRow[]>([]);
+  const [open, setOpen]       = useState(false);
+  const [loading, setLoading] = useState(false);
 
+  async function load() {
+    setLoading(true);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } });
+    setRows(await res.json());
+    setLoading(false);
+  }
+
+  useEffect(() => { if (open) load(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div>
+      <button onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-[12px] text-primary hover:underline cursor-pointer mb-2">
+        <BarChart2 className="size-3" /> {title}
+      </button>
+      {open && (
+        <div className="bg-card border border-border rounded-lg overflow-hidden mb-4">
+          {loading ? (
+            <p className="text-[13px] text-muted-foreground py-6 text-center">Carregando...</p>
+          ) : (
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-border bg-surface-2">
+                  <th className="text-left px-3 py-2 text-text-subtle font-medium">Categoria</th>
+                  <th className="text-right px-3 py-2 text-text-subtle font-medium">Qtd.</th>
+                  <th className="text-right px-3 py-2 text-text-subtle font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 && (
+                  <tr><td colSpan={3} className="px-3 py-6 text-center text-muted-foreground">Sem lançamentos.</td></tr>
+                )}
+                {rows.map((r, i) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2">{r.categoryName ?? <span className="text-text-subtle italic">Sem categoria</span>}</td>
+                    <td className="px-3 py-2 text-right text-text-subtle">{r.count}</td>
+                    <td className="px-3 py-2 text-right font-medium">{fmt(r.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── ContasTab — rollup somente leitura ── */
+function ContasTab({ projectId, entries, exits, totalIn, totalOut }: {
+  projectId: string; entries: FinancialRow[]; exits: FinancialRow[]; totalIn: number; totalOut: number;
+}) {
+  const balance = totalIn - totalOut;
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-3">
@@ -497,7 +469,7 @@ function ContasTab({ projectId, entries, exits, totalIn, totalOut, onMutate }: C
           <p className="text-[18px] font-semibold text-success">{fmt(totalIn)}</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-[11px] text-text-subtle mb-1">Total Saídas</p>
+          <p className="text-[11px] text-text-subtle mb-1">Total Despesas</p>
           <p className="text-[18px] font-semibold text-destructive">{fmt(totalOut)}</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-4">
@@ -507,36 +479,15 @@ function ContasTab({ projectId, entries, exits, totalIn, totalOut, onMutate }: C
       </div>
 
       <div>
-        <p className="text-[13px] font-medium mb-2">Entradas</p>
-        {canAdd && (
-          <FinancialForm
-            label="Adicionar entrada"
-            endpoint={`/api/v1/projects/${projectId}/financial-entries`}
-            onMutate={onMutate}
-          />
-        )}
-        <FinancialTable
-          rows={entries}
-          endpoint={`/api/v1/projects/${projectId}/financial-entries`}
-          onMutate={onMutate}
-        />
+        <p className="text-[13px] font-medium mb-3">Entradas por Categoria</p>
+        <CategoryReport title="Ver relatório de entradas" url={`/api/v1/projects/${projectId}/financial-entries/report`} />
+        <FinancialTable rows={entries} showCategory />
       </div>
 
       <div>
-        <p className="text-[13px] font-medium mb-2">Saídas</p>
-        {canAdd && (
-          <FinancialForm
-            label="Adicionar saída"
-            endpoint={`/api/v1/projects/${projectId}/financial-exits`}
-            onMutate={onMutate}
-            isExit
-          />
-        )}
-        <FinancialTable
-          rows={exits}
-          endpoint={`/api/v1/projects/${projectId}/financial-exits`}
-          onMutate={onMutate}
-        />
+        <p className="text-[13px] font-medium mb-3">Despesas por Categoria</p>
+        <CategoryReport title="Ver relatório de despesas" url={`/api/v1/projects/${projectId}/financial-exits/report`} />
+        <FinancialTable rows={exits} showCategory />
       </div>
     </div>
   );
