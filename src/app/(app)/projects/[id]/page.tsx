@@ -118,11 +118,11 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   /* derived stats */
-  const totalGoal   = project?.initiatives.reduce((s, i) => s + Number(i.goal),   0) ?? 0;
-  const totalRaised = project?.initiatives.reduce((s, i) => s + Number(i.raised), 0) ?? 0;
+  const totalGoal   = project?.initiatives?.reduce((s, i) => s + Number(i.goal),   0) ?? 0;
+  const totalRaised = project?.initiatives?.reduce((s, i) => s + Number(i.raised), 0) ?? 0;
   const goalPct     = totalGoal > 0 ? Math.round((totalRaised / totalGoal) * 100) : 0;
-  const totalIn     = project?.financialEntries.reduce((s, e) => s + Number(e.amount), 0) ?? 0;
-  const totalOut    = project?.financialExits.reduce((s, e)   => s + Number(e.amount), 0) ?? 0;
+  const totalIn     = project?.financialEntries?.reduce((s, e) => s + Number(e.amount), 0) ?? 0;
+  const totalOut    = project?.financialExits?.reduce((s, e)   => s + Number(e.amount), 0) ?? 0;
   const { variant: statusVariant, label: statusLabel } =
     STATUS_MAP[project?.status ?? "DRAFT"];
 
@@ -174,7 +174,7 @@ export default function ProjectDetailPage() {
             <KPICard label="Arrecadado"  value={fmt(totalIn)} />
             <KPICard label="Meta Total"  value={fmt(totalGoal)} />
             <KPICard label="Progresso"   value={`${goalPct}%`} />
-            <KPICard label="Iniciativas" value={project.initiatives.length} />
+            <KPICard label="Iniciativas" value={project?.initiatives?.length} />
           </>
         )}
       </div>
@@ -209,10 +209,10 @@ export default function ProjectDetailPage() {
               <p className="text-[13px] font-medium mb-3">Iniciativas</p>
               <div className="space-y-2.5">
                 {!project && [...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}
-                {project?.initiatives.slice(0, 3).map((init) => (
+                {project?.initiatives?.slice(0, 3).map((init) => (
                   <InitiativeCard key={init.id} init={init} />
                 ))}
-                {project?.initiatives.length === 0 && (
+                {project?.initiatives?.length === 0 && (
                   <p className="text-[13px] text-muted-foreground">Nenhuma iniciativa ainda.</p>
                 )}
               </div>
@@ -226,10 +226,10 @@ export default function ProjectDetailPage() {
                     <div className="flex-1 space-y-1.5"><Skeleton className="h-3 w-24" /><Skeleton className="h-4 w-full" /></div>
                   </div>
                 ))}
-                {project?.timelinePosts.slice(0, 3).map((post) => (
+                {project?.timelinePosts?.slice(0, 3).map((post) => (
                   <FeedItem key={post.id} Icon={MessageSquare} author={post.author.name} time={timeAgo(post.publishedAt)} text={post.content} />
                 ))}
-                {project?.timelinePosts.length === 0 && (
+                {project?.timelinePosts?.length === 0 && (
                   <p className="text-[13px] text-muted-foreground py-6 text-center">Sem posts ainda.</p>
                 )}
               </div>
@@ -250,20 +250,20 @@ export default function ProjectDetailPage() {
               </Link>
             </div>
 
-            {project?.initiatives.length === 0 && (
+            {project?.initiatives?.length === 0 && (
               <p className="text-[13px] text-muted-foreground">Nenhuma iniciativa cadastrada.</p>
             )}
-            {project?.initiatives.map((init) => <InitiativeCard key={init.id} init={init} />)}
+            {project?.initiatives?.map((init) => <InitiativeCard key={init.id} init={init} />)}
           </div>
         )}
 
         {/* TIMELINE */}
         {tab === "timeline" && (
           <div className="bg-card border border-border rounded-lg px-5 py-1 max-w-2xl">
-            {project?.timelinePosts.length === 0 && (
+            {project?.timelinePosts?.length === 0 && (
               <p className="text-[13px] text-muted-foreground py-8 text-center">Sem posts na timeline.</p>
             )}
-            {project?.timelinePosts.map((post) => (
+            {project?.timelinePosts?.map((post) => (
               <FeedItem key={post.id} Icon={MessageSquare} author={post.author.name} time={timeAgo(post.publishedAt)} text={post.content} />
             ))}
           </div>
@@ -285,12 +285,12 @@ export default function ProjectDetailPage() {
 
             {/* Tabela unificada */}
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              {(project?.financialEntries.length === 0 && project?.financialExits.length === 0) && (
+              {(project?.financialEntries?.length === 0 && project?.financialExits?.length === 0) && (
                 <p className="text-[13px] text-muted-foreground py-8 text-center">Sem lançamentos financeiros.</p>
               )}
-              {(project?.financialEntries.length ?? 0) > 0 || (project?.financialExits.length ?? 0) > 0 ? (
+              {(project?.financialEntries?.length ?? 0) > 0 || (project?.financialExits?.length ?? 0) > 0 ? (
                 <>
-                  {project?.financialEntries.map((e) => (
+                  {project?.financialEntries?.map((e) => (
                     <div key={e.id} className="flex justify-between items-center px-5 py-3 border-b border-border last:border-0 text-[13px]">
                       <div>
                         <p>{e.description}</p>
@@ -299,7 +299,7 @@ export default function ProjectDetailPage() {
                       <span className="font-medium text-success">+ {fmt(Number(e.amount))}</span>
                     </div>
                   ))}
-                  {project?.financialExits.map((e) => (
+                  {project?.financialExits?.map((e) => (
                     <div key={e.id} className="flex justify-between items-center px-5 py-3 border-b border-border last:border-0 text-[13px]">
                       <div>
                         <p>{e.description}</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, MessageSquare } from "lucide-react";
 import { KPICard } from "@/components/shared/kpi-card";
@@ -67,23 +68,28 @@ function Skeleton({ className }: { className?: string }) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
-    if (!token) return;
+    if (!token) { router.replace("/login"); return; }
 
     fetch("/api/v1/dashboard/stats", {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error.message);
+      .then(async (r) => {
+        const data = await r.json();
+        if (r.status === 401 || data.code === "UNAUTHORIZED") {
+          router.replace("/login");
+          return;
+        }
+        if (!r.ok) throw new Error(data.message ?? "Erro ao carregar dados");
         setStats(data);
       })
       .catch(() => setFetchError("Falha ao carregar dados. Tente novamente."));
-  }, []);
+  }, [router]);
 
   if (fetchError) {
     return (

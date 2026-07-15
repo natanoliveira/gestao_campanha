@@ -362,20 +362,16 @@ function InitiativeFormFields({
 }) {
   const available = initiatives.filter(i => !i.deletedAt && i.id !== excludeId)
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
+      {/* Row 1: Nome */}
       <div>
         <FieldLabel>Nome *</FieldLabel>
         <input required minLength={2} maxLength={150} value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
           className={inputCls} />
       </div>
-      <div>
-        <FieldLabel>Descrição</FieldLabel>
-        <textarea rows={2} value={form.description}
-          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-          className={textareaCls} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
+      {/* Row 2: valores monetários + prioridade */}
+      <div className="grid grid-cols-4 gap-2">
         <div>
           <FieldLabel>Meta (R$) *</FieldLabel>
           <input required type="number" min="0.01" step="0.01" value={form.goal}
@@ -383,13 +379,11 @@ function InitiativeFormFields({
             className={inputCls} />
         </div>
         <div>
-          <FieldLabel>Meta mínima (R$)</FieldLabel>
+          <FieldLabel>Meta mín. (R$)</FieldLabel>
           <input type="number" min="0" step="0.01" value={form.minGoal}
             onChange={e => setForm(f => ({ ...f, minGoal: e.target.value }))}
             className={inputCls} />
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
         <div>
           <FieldLabel>Arrecadado (R$)</FieldLabel>
           <input type="number" min="0" step="0.01" value={form.raised}
@@ -403,37 +397,47 @@ function InitiativeFormFields({
             className={inputCls} />
         </div>
       </div>
-      <div>
-        <FieldLabel>Status</FieldLabel>
-        <select value={form.status}
-          onChange={e => setForm(f => ({ ...f, status: e.target.value as InitStatus }))}
-          className={selectCls}>
-          {STATUSES.map(s => <option key={s} value={s}>{STATUS_MAP[s].label}</option>)}
-        </select>
+      {/* Row 3: status + responsável + depende de */}
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <FieldLabel>Status</FieldLabel>
+          <select value={form.status}
+            onChange={e => setForm(f => ({ ...f, status: e.target.value as InitStatus }))}
+            className={selectCls}>
+            {STATUSES.map(s => <option key={s} value={s}>{STATUS_MAP[s].label}</option>)}
+          </select>
+        </div>
+        <div>
+          <FieldLabel>Responsável</FieldLabel>
+          <select value={form.responsibleId}
+            onChange={e => setForm(f => ({ ...f, responsibleId: e.target.value }))}
+            className={selectCls}>
+            <option value="">Nenhum</option>
+            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <FieldLabel>Depende de</FieldLabel>
+          <select value={form.dependsOnId}
+            onChange={e => setForm(f => ({ ...f, dependsOnId: e.target.value }))}
+            className={selectCls}>
+            <option value="">Nenhuma</option>
+            {available.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+          </select>
+        </div>
       </div>
+      {/* Row 4: descrição */}
       <div>
-        <FieldLabel>Responsável</FieldLabel>
-        <select value={form.responsibleId}
-          onChange={e => setForm(f => ({ ...f, responsibleId: e.target.value }))}
-          className={selectCls}>
-          <option value="">Nenhum</option>
-          {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-      </div>
-      <div>
-        <FieldLabel>Depende de</FieldLabel>
-        <select value={form.dependsOnId}
-          onChange={e => setForm(f => ({ ...f, dependsOnId: e.target.value }))}
-          className={selectCls}>
-          <option value="">Nenhuma</option>
-          {available.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-        </select>
+        <FieldLabel>Descrição</FieldLabel>
+        <textarea rows={1} value={form.description}
+          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+          className={textareaCls} />
       </div>
     </div>
   )
 }
 
-const dialogPopupCls = "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-lg bg-card border border-border rounded-lg p-6 shadow-[0_10px_40px_rgba(0,0,0,.5)] transition-all duration-200 data-[starting-style]:opacity-0 data-[starting-style]:scale-95 data-[ending-style]:opacity-0 data-[ending-style]:scale-95 max-h-[90vh] overflow-y-auto"
+const dialogPopupCls = "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-card border border-border rounded-lg p-5 shadow-[0_10px_40px_rgba(0,0,0,.5)] transition-all duration-200 data-[starting-style]:opacity-0 data-[starting-style]:scale-95 data-[ending-style]:opacity-0 data-[ending-style]:scale-95 max-h-[85vh] overflow-y-auto"
 const dialogBdCls   = "fixed inset-0 bg-black/50 z-40 transition-opacity duration-200 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0"
 const cancelBtnCls  = "h-8 px-4 rounded-lg border border-border text-[13px] text-foreground hover:bg-surface-2 transition-colors disabled:opacity-50"
 const submitBtnCls  = "h-8 px-4 rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 min-w-20 flex items-center justify-center"
