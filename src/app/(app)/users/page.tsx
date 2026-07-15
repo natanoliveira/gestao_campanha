@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { Eye, Pencil, UserX, UserCheck, Trash2, Plus, Search } from "lucide-react"
+import { Dialog } from "@base-ui/react/dialog"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Badge, type BadgeVariant } from "@/components/ui/badge"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -353,12 +355,196 @@ export default function UsersPage() {
 
 // ─── Stubs para Tasks 4-5 (evitar erro de compilação) ────────────────────────
 
-function CreateUserModal(_: { open: boolean; onClose: () => void; onCreated: () => void }) {
-  return null
+function CreateUserModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean
+  onClose: () => void
+  onCreated: () => void
+}) {
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "MEMBER" as Role })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function handleOpenChange(next: boolean) {
+    if (loading) return
+    if (!next) { setError(null); setForm({ name: "", email: "", password: "", role: "MEMBER" }) }
+    onClose()
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/v1/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.message ?? "Erro ao criar usuário")
+      }
+      onCreated()
+      handleOpenChange(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ocorreu um erro")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-200 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+        <Dialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-card border border-border rounded-lg p-6 shadow-[0_10px_40px_rgba(0,0,0,.5)] transition-all duration-200 data-[starting-style]:opacity-0 data-[starting-style]:scale-95 data-[ending-style]:opacity-0 data-[ending-style]:scale-95">
+          <Dialog.Title className="text-base font-semibold text-foreground mb-1 font-sans">Novo Usuário</Dialog.Title>
+          <Dialog.Description className="text-sm text-muted-foreground mb-5">
+            Preencha os dados para criar um novo usuário.
+          </Dialog.Description>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <FieldLabel>Nome</FieldLabel>
+              <input required minLength={2} value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className={inputCls} />
+            </div>
+            <div>
+              <FieldLabel>Email</FieldLabel>
+              <input required type="email" value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className={inputCls} />
+            </div>
+            <div>
+              <FieldLabel>Senha</FieldLabel>
+              <input required type="password" minLength={8} value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className={inputCls} />
+            </div>
+            <div>
+              <FieldLabel>Role</FieldLabel>
+              <select value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
+                className={selectCls}>
+                {ROLES.map((r) => <option key={r} value={r}>{ROLE_MAP[r].label}</option>)}
+              </select>
+            </div>
+
+            {error && <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{error}</p>}
+
+            <div className="flex gap-2 justify-end pt-1">
+              <Dialog.Close render={
+                <button type="button" disabled={loading}
+                  className="h-8 px-4 rounded-lg border border-border text-[13px] text-foreground hover:bg-surface-2 transition-colors disabled:opacity-50">
+                  Cancelar
+                </button>
+              } />
+              <button type="submit" disabled={loading}
+                className="h-8 px-4 rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 min-w-20 flex items-center justify-center">
+                {loading ? <Spinner size="sm" /> : "Criar"}
+              </button>
+            </div>
+          </form>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
 }
 
-function EditUserModal(_: { user: User | null; onClose: () => void; onUpdated: () => void }) {
-  return null
+function EditUserModal({
+  user,
+  onClose,
+  onUpdated,
+}: {
+  user: User | null
+  onClose: () => void
+  onUpdated: () => void
+}) {
+  const [form, setForm] = useState({ name: "", role: "MEMBER" as Role })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (user) setForm({ name: user.name, role: user.role })
+  }, [user])
+
+  function handleOpenChange(next: boolean) {
+    if (loading) return
+    if (!next) { setError(null); onClose() }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/v1/users/${user.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.message ?? "Erro ao atualizar usuário")
+      }
+      onUpdated()
+      handleOpenChange(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ocorreu um erro")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog.Root open={!!user} onOpenChange={handleOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-200 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+        <Dialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-card border border-border rounded-lg p-6 shadow-[0_10px_40px_rgba(0,0,0,.5)] transition-all duration-200 data-[starting-style]:opacity-0 data-[starting-style]:scale-95 data-[ending-style]:opacity-0 data-[ending-style]:scale-95">
+          <Dialog.Title className="text-base font-semibold text-foreground mb-1 font-sans">Editar Usuário</Dialog.Title>
+          <Dialog.Description className="text-sm text-muted-foreground mb-5">{user?.email}</Dialog.Description>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <FieldLabel>Nome</FieldLabel>
+              <input required minLength={2} value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className={inputCls} />
+            </div>
+            <div>
+              <FieldLabel>Role</FieldLabel>
+              <select value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
+                className={selectCls}>
+                {ROLES.map((r) => <option key={r} value={r}>{ROLE_MAP[r].label}</option>)}
+              </select>
+            </div>
+
+            {error && <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{error}</p>}
+
+            <div className="flex gap-2 justify-end pt-1">
+              <Dialog.Close render={
+                <button type="button" disabled={loading}
+                  className="h-8 px-4 rounded-lg border border-border text-[13px] text-foreground hover:bg-surface-2 transition-colors disabled:opacity-50">
+                  Cancelar
+                </button>
+              } />
+              <button type="submit" disabled={loading}
+                className="h-8 px-4 rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 min-w-20 flex items-center justify-center">
+                {loading ? <Spinner size="sm" /> : "Salvar"}
+              </button>
+            </div>
+          </form>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
 }
 
 function UserDetailDrawer(_: { user: User | null; onClose: () => void }) {
