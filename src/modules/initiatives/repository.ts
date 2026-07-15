@@ -11,13 +11,14 @@ const select = {
 };
 
 export const initiativeRepository = {
-  findById(id: string, projectId: string) {
-    return prisma.initiative.findFirst({ where: { id, projectId, deletedAt: null }, select });
+  findById(id: string, projectId: string, organizationId: string) {
+    return prisma.initiative.findFirst({ where: { id, projectId, organizationId, deletedAt: null }, select });
   },
 
-  async list(projectId: string, params: ListInitiativesDTO) {
+  async list(projectId: string, organizationId: string, params: ListInitiativesDTO) {
     const where = {
       projectId,
+      organizationId,
       ...(!params.showDeleted && { deletedAt: null }),
       ...(params.status && { status: params.status }),
       ...(params.q && { name: { contains: params.q, mode: "insensitive" as const } }),

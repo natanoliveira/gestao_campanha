@@ -4,12 +4,12 @@ import { AppError } from "@/lib/errors";
 import type { CreateInitiativeDTO, UpdateInitiativeDTO, ListInitiativesDTO } from "./dto";
 
 export const initiativeService = {
-  list(projectId: string, params: ListInitiativesDTO) {
-    return initiativeRepository.list(projectId, params);
+  list(projectId: string, organizationId: string, params: ListInitiativesDTO) {
+    return initiativeRepository.list(projectId, organizationId, params);
   },
 
-  async findById(id: string, projectId: string) {
-    const init = await initiativeRepository.findById(id, projectId);
+  async findById(id: string, projectId: string, organizationId: string) {
+    const init = await initiativeRepository.findById(id, projectId, organizationId);
     if (!init) throw new AppError("Iniciativa não encontrada", 404, "NOT_FOUND");
     return init;
   },
@@ -17,7 +17,7 @@ export const initiativeService = {
   async create(projectId: string, organizationId: string, dto: CreateInitiativeDTO) {
     if (dto.dependsOnId) {
       const dep = await prisma.initiative.findFirst({
-        where: { id: dto.dependsOnId, projectId, deletedAt: null },
+        where: { id: dto.dependsOnId, projectId, organizationId, deletedAt: null },
       });
       if (!dep) throw new AppError("Iniciativa de dependência não encontrada neste projeto", 400, "BAD_REQUEST");
     }
@@ -31,11 +31,11 @@ export const initiativeService = {
   },
 
   async update(id: string, projectId: string, organizationId: string, dto: UpdateInitiativeDTO) {
-    await this.findById(id, projectId);
+    await this.findById(id, projectId, organizationId);
     if (dto.dependsOnId) {
       if (dto.dependsOnId === id) throw new AppError("Uma iniciativa não pode depender de si mesma", 400, "BAD_REQUEST");
       const dep = await prisma.initiative.findFirst({
-        where: { id: dto.dependsOnId, projectId, deletedAt: null },
+        where: { id: dto.dependsOnId, projectId, organizationId, deletedAt: null },
       });
       if (!dep) throw new AppError("Iniciativa de dependência não encontrada neste projeto", 400, "BAD_REQUEST");
     }
@@ -48,8 +48,8 @@ export const initiativeService = {
     return initiativeRepository.update(id, dto);
   },
 
-  async remove(id: string, projectId: string) {
-    await this.findById(id, projectId);
+  async remove(id: string, projectId: string, organizationId: string) {
+    await this.findById(id, projectId, organizationId);
     return initiativeRepository.softDelete(id);
   },
 };

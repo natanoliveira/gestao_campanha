@@ -14,7 +14,10 @@ export const createInitiativeSchema = z.object({
   dependsOnId:   z.string().uuid().optional(),
 });
 
-export const updateInitiativeSchema = createInitiativeSchema.partial();
+export const updateInitiativeSchema = createInitiativeSchema.partial().extend({
+  responsibleId: z.string().uuid().nullable().optional(),
+  dependsOnId:   z.string().uuid().nullable().optional(),
+});
 
 export const listInitiativesSchema = z.object({
   status:      z.enum(statuses).optional(),

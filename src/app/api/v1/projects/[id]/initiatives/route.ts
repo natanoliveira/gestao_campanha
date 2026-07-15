@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const rawParams = Object.fromEntries(searchParams);
     if (rawParams.showDeleted && payload.role !== "ADMIN") delete rawParams.showDeleted;
     const p = listInitiativesSchema.parse(rawParams);
-    return Response.json(await initiativeService.list(id, p));
+    return Response.json(await initiativeService.list(id, payload.organizationId, p));
   } catch (e) { return errorResponse(e); }
 }
 

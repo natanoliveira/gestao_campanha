@@ -9,9 +9,9 @@ type Ctx = { params: Promise<{ id: string; initId: string }> };
 
 export async function GET(req: NextRequest, { params }: Ctx) {
   try {
-    authenticate(req);
+    const payload = authenticate(req);
     const { id, initId } = await params;
-    return Response.json(await initiativeService.findById(initId, id));
+    return Response.json(await initiativeService.findById(initId, id, payload.organizationId));
   } catch (e) { return errorResponse(e); }
 }
 
@@ -30,7 +30,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     const payload = authenticate(req);
     authorize(payload, ["ADMIN"]);
     const { id, initId } = await params;
-    await initiativeService.remove(initId, id);
+    await initiativeService.remove(initId, id, payload.organizationId);
     return new Response(null, { status: 204 });
   } catch (e) { return errorResponse(e); }
 }

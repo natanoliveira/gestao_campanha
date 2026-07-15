@@ -1,3 +1,335 @@
+# Módulo Iniciativas — UI + API Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Implementar API completa de iniciativas (módulo + rotas nested em projetos) e UI de gestão com tabela, criar/editar via modal, detalhes via drawer e soft delete.
+
+**Architecture:** Módulo `src/modules/initiatives/` (dto + repository + service) + rotas nested em `/api/v1/projects/[id]/initiatives/`. Página única `src/app/(app)/projects/[id]/initiatives/page.tsx` com todos os sub-componentes inline, seguindo exatamente o padrão de `users/page.tsx`. Página de projeto ganha link "Gerenciar Iniciativas" na aba Iniciativas.
+
+**Tech Stack:** Next.js 15 App Router, Prisma v7, base-ui Dialog/Drawer, Tailwind v4, Lucide React, Zod
+
+## Global Constraints
+
+- Bearer JWT: `Authorization: Bearer ${localStorage.getItem("access_token")}`
+- Role: `JSON.parse(localStorage.getItem("user") ?? "{}").role`
+- Params Next.js 15 são Promise: `const { id, initId } = await params`
+- Soft delete: `deletedAt` — `softDelete()` seta `deletedAt: new Date()`
+- `ConfirmDialog` para toda ação destrutiva
+- `showDeleted: true` bloqueado no servidor para não-ADMIN (strip before Zod parse)
+- Criar/editar: ADMIN e MANAGER. Excluir: somente ADMIN
+- `dependsOnId` deve pertencer ao mesmo `projectId`; `responsibleId` à mesma `organizationId`
+- `goal`, `minGoal`, `raised` são Decimal no Prisma — chegam como string no JSON, converter com `Number()`
+- Ordenação padrão: `priority ASC, createdAt ASC`
+- Dark theme CSS vars: `--background`, `--card`, `--primary`, `--border`, `--surface-2`
+
+---
+
+### Task 1: Backend — módulo iniciativas (dto + repository + service)
+
+**Files:**
+- Create: `src/modules/initiatives/dto.ts`
+- Create: `src/modules/initiatives/repository.ts`
+- Create: `src/modules/initiatives/service.ts`
+
+**Interfaces:**
+- Produces: `initiativeService.{ list, findById, create, update, remove }` consumido pela Task 2
+- Produces: tipos `CreateInitiativeDTO`, `UpdateInitiativeDTO`, `ListInitiativesDTO` exportados de dto.ts
+
+- [ ] **Step 1: Criar `src/modules/initiatives/dto.ts`**
+
+```ts
+import { z } from "zod";
+
+const statuses = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const;
+
+export const createInitiativeSchema = z.object({
+  name:          z.string().min(2).max(150),
+  description:   z.string().optional(),
+  goal:          z.coerce.number().positive(),
+  minGoal:       z.coerce.number().positive().optional(),
+  raised:        z.coerce.number().min(0).optional(),
+  priority:      z.coerce.number().int().optional(),
+  status:        z.enum(statuses).optional(),
+  responsibleId: z.string().uuid().optional(),
+  dependsOnId:   z.string().uuid().optional(),
+});
+
+export const updateInitiativeSchema = createInitiativeSchema.partial();
+
+export const listInitiativesSchema = z.object({
+  status:      z.enum(statuses).optional(),
+  q:           z.string().optional(),
+  showDeleted: z.coerce.boolean().optional(),
+  page:        z.coerce.number().optional(),
+  limit:       z.coerce.number().optional(),
+});
+
+export type CreateInitiativeDTO = z.infer<typeof createInitiativeSchema>;
+export type UpdateInitiativeDTO = z.infer<typeof updateInitiativeSchema>;
+export type ListInitiativesDTO  = z.infer<typeof listInitiativesSchema>;
+```
+
+- [ ] **Step 2: Criar `src/modules/initiatives/repository.ts`**
+
+```ts
+import { prisma } from "@/lib/prisma";
+import type { CreateInitiativeDTO, UpdateInitiativeDTO, ListInitiativesDTO } from "./dto";
+
+const select = {
+  id: true, projectId: true, organizationId: true,
+  name: true, description: true,
+  goal: true, minGoal: true, raised: true,
+  priority: true, status: true,
+  responsibleId: true, dependsOnId: true,
+  createdAt: true, deletedAt: true,
+};
+
+export const initiativeRepository = {
+  findById(id: string, projectId: string) {
+    return prisma.initiative.findFirst({ where: { id, projectId, deletedAt: null }, select });
+  },
+
+  async list(projectId: string, params: ListInitiativesDTO) {
+    const where = {
+      projectId,
+      ...(!params.showDeleted && { deletedAt: null }),
+      ...(params.status && { status: params.status }),
+      ...(params.q && { name: { contains: params.q, mode: "insensitive" as const } }),
+    };
+    const page  = Math.max(1, params.page  ?? 1);
+    const limit = Math.min(100, params.limit ?? 50);
+    const [data, total] = await Promise.all([
+      prisma.initiative.findMany({
+        where, select,
+        skip: (page - 1) * limit, take: limit,
+        orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+      }),
+      prisma.initiative.count({ where }),
+    ]);
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  },
+
+  create(data: CreateInitiativeDTO & { projectId: string; organizationId: string }) {
+    return prisma.initiative.create({ data, select });
+  },
+
+  update(id: string, data: UpdateInitiativeDTO) {
+    return prisma.initiative.update({ where: { id }, data, select });
+  },
+
+  softDelete(id: string) {
+    return prisma.initiative.update({ where: { id }, data: { deletedAt: new Date() }, select });
+  },
+};
+```
+
+- [ ] **Step 3: Criar `src/modules/initiatives/service.ts`**
+
+```ts
+import { initiativeRepository } from "./repository";
+import { prisma } from "@/lib/prisma";
+import { AppError } from "@/lib/errors";
+import type { CreateInitiativeDTO, UpdateInitiativeDTO, ListInitiativesDTO } from "./dto";
+
+export const initiativeService = {
+  list(projectId: string, params: ListInitiativesDTO) {
+    return initiativeRepository.list(projectId, params);
+  },
+
+  async findById(id: string, projectId: string) {
+    const init = await initiativeRepository.findById(id, projectId);
+    if (!init) throw new AppError("Iniciativa não encontrada", 404, "NOT_FOUND");
+    return init;
+  },
+
+  async create(projectId: string, organizationId: string, dto: CreateInitiativeDTO) {
+    if (dto.dependsOnId) {
+      const dep = await prisma.initiative.findFirst({
+        where: { id: dto.dependsOnId, projectId, deletedAt: null },
+      });
+      if (!dep) throw new AppError("Iniciativa de dependência não encontrada neste projeto", 400, "BAD_REQUEST");
+    }
+    if (dto.responsibleId) {
+      const user = await prisma.user.findFirst({
+        where: { id: dto.responsibleId, organizationId, deletedAt: null },
+      });
+      if (!user) throw new AppError("Responsável não encontrado nesta organização", 400, "BAD_REQUEST");
+    }
+    return initiativeRepository.create({ ...dto, projectId, organizationId });
+  },
+
+  async update(id: string, projectId: string, organizationId: string, dto: UpdateInitiativeDTO) {
+    await this.findById(id, projectId);
+    if (dto.dependsOnId) {
+      if (dto.dependsOnId === id) throw new AppError("Uma iniciativa não pode depender de si mesma", 400, "BAD_REQUEST");
+      const dep = await prisma.initiative.findFirst({
+        where: { id: dto.dependsOnId, projectId, deletedAt: null },
+      });
+      if (!dep) throw new AppError("Iniciativa de dependência não encontrada neste projeto", 400, "BAD_REQUEST");
+    }
+    if (dto.responsibleId) {
+      const user = await prisma.user.findFirst({
+        where: { id: dto.responsibleId, organizationId, deletedAt: null },
+      });
+      if (!user) throw new AppError("Responsável não encontrado nesta organização", 400, "BAD_REQUEST");
+    }
+    return initiativeRepository.update(id, dto);
+  },
+
+  async remove(id: string, projectId: string) {
+    await this.findById(id, projectId);
+    return initiativeRepository.softDelete(id);
+  },
+};
+```
+
+- [ ] **Step 4: Verificar tipos com tsc**
+
+```bash
+npx --prefix /Users/natanoliveira/Projetos/javascript/react/gestao_campanha tsc --noEmit
+```
+
+Esperado: zero erros.
+
+- [ ] **Step 5: Gerar mensagem de commit (não executar)**
+
+```
+feat: módulo de iniciativas (dto, repository, service)
+```
+
+---
+
+### Task 2: API routes — iniciativas nested em projetos
+
+**Files:**
+- Create: `src/app/api/v1/projects/[id]/initiatives/route.ts`
+- Create: `src/app/api/v1/projects/[id]/initiatives/[initId]/route.ts`
+
+**Interfaces:**
+- Consumes: `initiativeService` de Task 1, `createInitiativeSchema`, `updateInitiativeSchema`, `listInitiativesSchema`
+- Produces: `GET/POST /api/v1/projects/:id/initiatives`, `GET/PUT/DELETE /api/v1/projects/:id/initiatives/:initId`
+
+- [ ] **Step 1: Criar `src/app/api/v1/projects/[id]/initiatives/route.ts`**
+
+```ts
+import { NextRequest } from "next/server";
+import { authenticate } from "@/middlewares/authenticate";
+import { authorize } from "@/middlewares/authorize";
+import { initiativeService } from "@/modules/initiatives/service";
+import { createInitiativeSchema, listInitiativesSchema } from "@/modules/initiatives/dto";
+import { errorResponse } from "@/lib/errors";
+
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(req: NextRequest, { params }: Ctx) {
+  try {
+    const payload = authenticate(req);
+    const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const rawParams = Object.fromEntries(searchParams);
+    if (rawParams.showDeleted && payload.role !== "ADMIN") delete rawParams.showDeleted;
+    const p = listInitiativesSchema.parse(rawParams);
+    return Response.json(await initiativeService.list(id, p));
+  } catch (e) { return errorResponse(e); }
+}
+
+export async function POST(req: NextRequest, { params }: Ctx) {
+  try {
+    const payload = authenticate(req);
+    authorize(payload, ["ADMIN", "MANAGER"]);
+    const { id } = await params;
+    const dto = createInitiativeSchema.parse(await req.json());
+    const init = await initiativeService.create(id, payload.organizationId, dto);
+    return Response.json(init, { status: 201 });
+  } catch (e) { return errorResponse(e); }
+}
+```
+
+- [ ] **Step 2: Criar `src/app/api/v1/projects/[id]/initiatives/[initId]/route.ts`**
+
+```ts
+import { NextRequest } from "next/server";
+import { authenticate } from "@/middlewares/authenticate";
+import { authorize } from "@/middlewares/authorize";
+import { initiativeService } from "@/modules/initiatives/service";
+import { updateInitiativeSchema } from "@/modules/initiatives/dto";
+import { errorResponse } from "@/lib/errors";
+
+type Ctx = { params: Promise<{ id: string; initId: string }> };
+
+export async function GET(req: NextRequest, { params }: Ctx) {
+  try {
+    authenticate(req);
+    const { id, initId } = await params;
+    return Response.json(await initiativeService.findById(initId, id));
+  } catch (e) { return errorResponse(e); }
+}
+
+export async function PUT(req: NextRequest, { params }: Ctx) {
+  try {
+    const payload = authenticate(req);
+    authorize(payload, ["ADMIN", "MANAGER"]);
+    const { id, initId } = await params;
+    const dto = updateInitiativeSchema.parse(await req.json());
+    return Response.json(await initiativeService.update(initId, id, payload.organizationId, dto));
+  } catch (e) { return errorResponse(e); }
+}
+
+export async function DELETE(req: NextRequest, { params }: Ctx) {
+  try {
+    const payload = authenticate(req);
+    authorize(payload, ["ADMIN"]);
+    const { id, initId } = await params;
+    await initiativeService.remove(initId, id);
+    return new Response(null, { status: 204 });
+  } catch (e) { return errorResponse(e); }
+}
+```
+
+- [ ] **Step 3: Verificar tipos**
+
+```bash
+npx --prefix /Users/natanoliveira/Projetos/javascript/react/gestao_campanha tsc --noEmit
+```
+
+Esperado: zero erros.
+
+- [ ] **Step 4: Testar manualmente (com servidor rodando)**
+
+```bash
+# Login e listagem (ajustar credenciais)
+TOKEN=$(curl -s -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"senha123"}' | jq -r '.accessToken')
+
+# Listar iniciativas de um projeto (ajustar PROJECT_ID)
+PROJECT_ID="<uuid-de-um-projeto>"
+curl -s "http://localhost:3000/api/v1/projects/$PROJECT_ID/initiatives" \
+  -H "Authorization: Bearer $TOKEN" | jq '.meta'
+```
+
+Esperado: `{ total, page, limit, totalPages }` sem erro 500.
+
+- [ ] **Step 5: Gerar mensagem de commit (não executar)**
+
+```
+feat: API de iniciativas (GET, POST, PUT, DELETE) nested em projetos
+```
+
+---
+
+### Task 3: Página base — listagem, filtros, skeleton, ações
+
+**Files:**
+- Create: `src/app/(app)/projects/[id]/initiatives/page.tsx`
+
+**Interfaces:**
+- Consumes: `GET /api/v1/projects/[id]/initiatives`, `GET /api/v1/projects/[id]`, `GET /api/v1/users?limit=100`
+- Produces: tipos `Initiative`, `SimpleUser`, `InitStatus`; helpers `getToken()`, `currentRole()`, `fmt()`, `pct()`, `progressVariant()`; constantes `STATUS_MAP`, `STATUSES`; classes `inputCls`, `selectCls`, `textareaCls`; componentes `Skeleton`, `FieldLabel`; estados `initiatives`, `users`, `projectId`, `load()`
+
+- [ ] **Step 1: Criar `src/app/(app)/projects/[id]/initiatives/page.tsx`**
+
+```tsx
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
@@ -339,6 +671,63 @@ export default function InitiativesPage() {
   )
 }
 
+// ─── Stubs ────────────────────────────────────────────────────────────────────
+
+function CreateInitiativeModal(_: {
+  open: boolean; onClose: () => void; onCreated: () => void
+  projectId: string; users: SimpleUser[]; initiatives: Initiative[]
+}) { return null }
+
+function EditInitiativeModal(_: {
+  init: Initiative | null; onClose: () => void; onUpdated: () => void
+  projectId: string; users: SimpleUser[]; initiatives: Initiative[]
+}) { return null }
+
+function InitiativeDetailDrawer(_: {
+  init: Initiative | null; onClose: () => void
+  users: SimpleUser[]; initiatives: Initiative[]
+}) { return null }
+```
+
+- [ ] **Step 2: Verificar tipos**
+
+```bash
+npx --prefix /Users/natanoliveira/Projetos/javascript/react/gestao_campanha tsc --noEmit
+```
+
+Esperado: zero erros.
+
+- [ ] **Step 3: Verificar no browser**
+
+Abra `http://localhost:3000/projects/<uuid>/initiatives`. Deve mostrar:
+- Breadcrumb com nome do projeto
+- Filtros: search, status, toggle "Mostrar removidas" (ADMIN)
+- Skeleton de 4 linhas durante carregamento
+- Tabela com dados (ou "Nenhuma iniciativa encontrada")
+- Botão "Nova Iniciativa" para ADMIN/MANAGER
+
+- [ ] **Step 4: Gerar mensagem de commit (não executar)**
+
+```
+feat: página base de listagem de iniciativas com tabela e filtros
+```
+
+---
+
+### Task 4: Modais criar e editar iniciativa
+
+**Files:**
+- Modify: `src/app/(app)/projects/[id]/initiatives/page.tsx` — substituir stubs `CreateInitiativeModal` e `EditInitiativeModal`
+
+**Interfaces:**
+- Consumes: `POST /api/v1/projects/[projectId]/initiatives`, `PUT /api/v1/projects/[projectId]/initiatives/[initId]`
+- Consumes (do Task 3): `STATUS_MAP`, `STATUSES`, `getToken()`, `inputCls`, `selectCls`, `textareaCls`, `FieldLabel`, `Spinner`, `Initiative`, `SimpleUser`, `InitStatus`
+
+- [ ] **Step 1: Adicionar tipo `InitForm` e helper `InitiativeFormFields` antes dos stubs**
+
+Adicionar imediatamente antes da linha `// ─── Stubs`:
+
+```tsx
 type InitForm = {
   name: string; description: string; goal: string; minGoal: string
   raised: string; priority: string; status: InitStatus
@@ -437,9 +826,13 @@ const dialogPopupCls = "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
 const dialogBdCls   = "fixed inset-0 bg-black/50 z-40 transition-opacity duration-200 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0"
 const cancelBtnCls  = "h-8 px-4 rounded-lg border border-border text-[13px] text-foreground hover:bg-surface-2 transition-colors disabled:opacity-50"
 const submitBtnCls  = "h-8 px-4 rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 min-w-20 flex items-center justify-center"
+```
 
-// ─── Stubs ────────────────────────────────────────────────────────────────────
+- [ ] **Step 2: Substituir stub `CreateInitiativeModal`**
 
+Localizar `function CreateInitiativeModal` no final do arquivo e substituir por:
+
+```tsx
 function CreateInitiativeModal({
   open, onClose, onCreated, projectId, users, initiatives,
 }: {
@@ -475,7 +868,7 @@ function CreateInitiativeModal({
         body: JSON.stringify(body),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message ?? "Erro ao criar") }
-      setLoading(false); onCreated(); onClose()
+      setLoading(false); onCreated(); onClose(); setForm(emptyForm)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ocorreu um erro")
       setLoading(false)
@@ -506,7 +899,13 @@ function CreateInitiativeModal({
     </Dialog.Root>
   )
 }
+```
 
+- [ ] **Step 3: Substituir stub `EditInitiativeModal`**
+
+Localizar `function EditInitiativeModal` e substituir por:
+
+```tsx
 function EditInitiativeModal({
   init, onClose, onUpdated, projectId, users, initiatives,
 }: {
@@ -543,7 +942,7 @@ function EditInitiativeModal({
     try {
       const body: Record<string, unknown> = {
         name: form.name, goal: form.goal, status: form.status,
-        raised: form.raised, priority: Number(form.priority) || 0,
+        raised: form.raised, priority: form.priority,
       }
       if (form.description)   body.description   = form.description
       if (form.minGoal)       body.minGoal       = form.minGoal
@@ -585,7 +984,39 @@ function EditInitiativeModal({
     </Dialog.Root>
   )
 }
+```
 
+- [ ] **Step 4: Verificar tipos e funcionamento**
+
+```bash
+npx --prefix /Users/natanoliveira/Projetos/javascript/react/gestao_campanha tsc --noEmit
+```
+
+No browser: "Nova Iniciativa" abre modal com todos os 9 campos. Submit cria e fecha. Pencil abre modal com dados pré-preenchidos. Erros da API aparecem em vermelho.
+
+- [ ] **Step 5: Gerar mensagem de commit (não executar)**
+
+```
+feat: modais de criar e editar iniciativa com todos os campos
+```
+
+---
+
+### Task 5: Drawer de detalhes + link "Gerenciar" no projeto
+
+**Files:**
+- Modify: `src/app/(app)/projects/[id]/initiatives/page.tsx` — substituir stub `InitiativeDetailDrawer`
+- Modify: `src/app/(app)/projects/[id]/page.tsx` — adicionar link "Gerenciar Iniciativas" na aba Iniciativas
+
+**Interfaces:**
+- Consumes: `AppDrawer` com `open`/`onOpenChange` (Task 2 do módulo Usuários já adicionou esses props)
+- Consumes (do Task 3): `fmt()`, `pct()`, `progressVariant()`, `STATUS_MAP`, `Badge`, `ProgressBar`, `Initiative`, `SimpleUser`
+
+- [ ] **Step 1: Substituir stub `InitiativeDetailDrawer`**
+
+Localizar `function InitiativeDetailDrawer` e substituir por:
+
+```tsx
 function InitiativeDetailDrawer({
   init, onClose, users, initiatives,
 }: {
@@ -661,4 +1092,48 @@ function DrawerRow({ label, children }: { label: string; children: React.ReactNo
     </div>
   )
 }
+```
 
+- [ ] **Step 2: Adicionar link "Gerenciar Iniciativas" em `/projects/[id]/page.tsx`**
+
+Abrir `src/app/(app)/projects/[id]/page.tsx`. Localizar o bloco `{tab === "iniciativas" && (` e adicionar o link logo após a abertura do `<div className="space-y-2.5">`:
+
+```tsx
+{tab === "iniciativas" && (
+  <div className="space-y-2.5">
+    {/* Link para gestão completa */}
+    <div className="flex justify-end mb-1">
+      <Link
+        href={`/projects/${project?.id}/initiatives`}
+        className="text-[12px] text-primary hover:underline"
+      >
+        Gerenciar Iniciativas →
+      </Link>
+    </div>
+
+    {project?.initiatives.length === 0 && (
+      <p className="text-[13px] text-muted-foreground">Nenhuma iniciativa cadastrada.</p>
+    )}
+    {project?.initiatives.map((init) => <InitiativeCard key={init.id} init={init} />)}
+  </div>
+)}
+```
+
+Verificar que `Link` já está importado no topo do arquivo (já estava no código original).
+
+- [ ] **Step 3: Verificar tipos**
+
+```bash
+npx --prefix /Users/natanoliveira/Projetos/javascript/react/gestao_campanha tsc --noEmit
+```
+
+- [ ] **Step 4: Verificar no browser**
+
+- Clicar em Eye na tabela de iniciativas → drawer abre com progresso, status, responsável, depende de, descrição, data
+- Ir em `/projects/<id>` → aba "Iniciativas" → link "Gerenciar Iniciativas →" aparece e navega para `/projects/<id>/initiatives`
+
+- [ ] **Step 5: Gerar mensagem de commit (não executar)**
+
+```
+feat: drawer de detalhes de iniciativa e link Gerenciar na aba do projeto
+```

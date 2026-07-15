@@ -240,6 +240,16 @@ export default function ProjectDetailPage() {
         {/* INICIATIVAS */}
         {tab === "iniciativas" && (
           <div className="space-y-2.5">
+            {/* Link para gestão completa */}
+            <div className="flex justify-end mb-1">
+              <Link
+                href={`/projects/${project?.id}/initiatives`}
+                className="text-[12px] text-primary hover:underline"
+              >
+                Gerenciar Iniciativas →
+              </Link>
+            </div>
+
             {project?.initiatives.length === 0 && (
               <p className="text-[13px] text-muted-foreground">Nenhuma iniciativa cadastrada.</p>
             )}
