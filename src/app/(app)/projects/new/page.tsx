@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Spinner } from "@/components/ui/spinner"
+import { fetchWithAuth } from "@/lib/fetch-with-auth"
 
 type Status = "DRAFT" | "ACTIVE" | "COMPLETED" | "ARCHIVED"
 
@@ -37,10 +38,9 @@ export default function NewProjectPage() {
       if (startDate)            body.startDate = new Date(startDate).toISOString()
       if (endDate)              body.endDate   = new Date(endDate).toISOString()
 
-      const token = localStorage.getItem("access_token") ?? ""
-      const res   = await fetch("/api/v1/projects", {
+      const res   = await fetchWithAuth("/api/v1/projects", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
       const data = await res.json()

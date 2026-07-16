@@ -6,6 +6,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { fetchWithAuth } from "@/lib/fetch-with-auth";
 
 type CategoryType = "ENTRY" | "EXIT";
 type Category = { id: string; name: string; type: CategoryType; createdAt: string };
@@ -14,7 +15,6 @@ const inputCls = "w-full h-8 px-3 text-[13px] bg-background border border-border
 const dialogPopupCls = "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-5 outline-none";
 const overlayBackdropCls = "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm";
 
-function getToken() { return localStorage.getItem("access_token") ?? ""; }
 function currentRole(): string { try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? ""; } catch { return ""; } }
 
 const TABS: { id: CategoryType; label: string }[] = [
@@ -35,9 +35,7 @@ export default function FinancialCategoriesPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/v1/financial-categories?type=${tab}`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
+    fetchWithAuth(`/api/v1/financial-categories?type=${tab}`)
       .then((r) => r.json())
       .then((d) => { setCats(Array.isArray(d) ? d : []); setLoading(false); });
   }, [tab]);
@@ -52,15 +50,15 @@ export default function FinancialCategoriesPage() {
     if (!name.trim()) return;
     setSaving(true);
     if (editing) {
-      await fetch(`/api/v1/financial-categories/${editing.id}`, {
+      await fetchWithAuth(`/api/v1/financial-categories/${editing.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
     } else {
-      await fetch("/api/v1/financial-categories", {
+      await fetchWithAuth("/api/v1/financial-categories", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, type: tab }),
       });
     }
@@ -70,10 +68,7 @@ export default function FinancialCategoriesPage() {
   }
 
   async function deleteCategory(cat: Category) {
-    await fetch(`/api/v1/financial-categories/${cat.id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
+    await fetchWithAuth(`/api/v1/financial-categories/${cat.id}`, { method: "DELETE" });
     load();
   }
 

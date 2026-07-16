@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
+import { fetchWithAuth } from "@/lib/fetch-with-auth"
 import Link from "next/link"
 import { Eye, Pencil, Trash2, Plus, Search } from "lucide-react"
 import { Dialog } from "@base-ui/react/dialog"
@@ -52,8 +53,6 @@ const STATUS_MAP: Record<InitStatus, { variant: BadgeVariant; label: string }> =
 const STATUSES: InitStatus[] = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getToken() { return localStorage.getItem("access_token") ?? "" }
 
 function currentRole(): string | null {
   try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? null }
@@ -110,9 +109,7 @@ export default function InitiativesPage() {
     if (statusFilter) params.set("status", statusFilter)
     if (showDeleted && isAdmin) params.set("showDeleted", "true")
     setInitiatives(null)
-    fetch(`/api/v1/projects/${projectId}/initiatives?${params}`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
+    fetchWithAuth(`/api/v1/projects/${projectId}/initiatives?${params}`)
       .then(r => r.json())
       .then(d => setInitiatives(d.data ?? []))
   }, [projectId, q, statusFilter, showDeleted, isAdmin])
@@ -120,16 +117,15 @@ export default function InitiativesPage() {
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    fetch(`/api/v1/projects/${projectId}`, { headers: { Authorization: `Bearer ${getToken()}` } })
+    fetchWithAuth(`/api/v1/projects/${projectId}`)
       .then(r => r.json()).then(d => setProjectName(d.name ?? ""))
-    fetch(`/api/v1/users?limit=100`, { headers: { Authorization: `Bearer ${getToken()}` } })
+    fetchWithAuth(`/api/v1/users?limit=100`)
       .then(r => r.json()).then(d => setUsers(d.data ?? []))
   }, [projectId])
 
   async function removeInit(initId: string) {
-    const res = await fetch(`/api/v1/projects/${projectId}/initiatives/${initId}`, {
+    const res = await fetchWithAuth(`/api/v1/projects/${projectId}/initiatives/${initId}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${getToken()}` },
     })
     if (!res.ok) throw new Error("Erro ao remover iniciativa")
     load()
@@ -482,9 +478,9 @@ function CreateInitiativeModal({
       if (form.responsibleId) body.responsibleId = form.responsibleId
       if (form.dependsOnId)   body.dependsOnId   = form.dependsOnId
 
-      const res = await fetch(`/api/v1/projects/${projectId}/initiatives`, {
+      const res = await fetchWithAuth(`/api/v1/projects/${projectId}/initiatives`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message ?? "Erro ao criar") }
@@ -563,9 +559,9 @@ function EditInitiativeModal({
       body.responsibleId = form.responsibleId || null
       body.dependsOnId   = form.dependsOnId   || null
 
-      const res = await fetch(`/api/v1/projects/${projectId}/initiatives/${init.id}`, {
+      const res = await fetchWithAuth(`/api/v1/projects/${projectId}/initiatives/${init.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message ?? "Erro ao atualizar") }
@@ -610,21 +606,18 @@ function InitiativeModal({ init, projectId, onClose, onMutate }: {
   const canAdd                = role === "ADMIN" || role === "MANAGER";
 
   const loadEntries = useCallback(() => {
-    fetch(`/api/v1/projects/${projectId}/initiatives/${init.id}/entries`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    }).then((r) => r.json()).then((d) => setEntries(Array.isArray(d) ? d : []));
+    fetchWithAuth(`/api/v1/projects/${projectId}/initiatives/${init.id}/entries`)
+      .then((r) => r.json()).then((d) => setEntries(Array.isArray(d) ? d : []));
   }, [projectId, init.id]);
 
   const loadExits = useCallback(() => {
-    fetch(`/api/v1/projects/${projectId}/initiatives/${init.id}/exits`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    }).then((r) => r.json()).then((d) => setExits(Array.isArray(d) ? d : []));
+    fetchWithAuth(`/api/v1/projects/${projectId}/initiatives/${init.id}/exits`)
+      .then((r) => r.json()).then((d) => setExits(Array.isArray(d) ? d : []));
   }, [projectId, init.id]);
 
   function loadCats(type: "ENTRY" | "EXIT") {
-    fetch(`/api/v1/financial-categories?type=${type}`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    }).then((r) => r.json()).then((d) => setCats(Array.isArray(d) ? d : []));
+    fetchWithAuth(`/api/v1/financial-categories?type=${type}`)
+      .then((r) => r.json()).then((d) => setCats(Array.isArray(d) ? d : []));
   }
 
   useEffect(() => { if (tab === "entradas") { loadEntries(); loadCats("ENTRY"); } }, [tab]); // eslint-disable-line
@@ -710,9 +703,7 @@ function InitiativeModal({ init, projectId, onClose, onMutate }: {
               />
             )}
             <FinancialInlineTable rows={entries} onDelete={async (rowId) => {
-              await fetch(`/api/v1/projects/${projectId}/initiatives/${init.id}/entries/${rowId}`, {
-                method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` },
-              });
+              await fetchWithAuth(`/api/v1/projects/${projectId}/initiatives/${init.id}/entries/${rowId}`, { method: "DELETE" });
               loadEntries();
             }} />
           </div>
@@ -735,9 +726,7 @@ function InitiativeModal({ init, projectId, onClose, onMutate }: {
               />
             )}
             <FinancialInlineTable rows={exits} isExit onDelete={async (rowId) => {
-              await fetch(`/api/v1/projects/${projectId}/initiatives/${init.id}/exits/${rowId}`, {
-                method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` },
-              });
+              await fetchWithAuth(`/api/v1/projects/${projectId}/initiatives/${init.id}/exits/${rowId}`, { method: "DELETE" });
               loadExits();
             }} />
           </div>
@@ -764,9 +753,9 @@ function FinancialInlineForm({ endpoint, categories, onSuccess, label, isExit }:
     e.preventDefault();
     setSaving(true);
     const dateIso = new Date(date + "T12:00:00.000Z").toISOString();
-    await fetch(endpoint, {
+    await fetchWithAuth(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         description: desc, amount: Number(amount), date: dateIso,
         categoryId: catId || undefined,

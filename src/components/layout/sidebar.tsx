@@ -10,6 +10,7 @@ import {
   Users,
   Settings,
   LogOut,
+  Tag,
 } from "lucide-react"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -26,8 +27,9 @@ const NAV = [
   {
     section: "Organização",
     items: [
-      { href: "/users",    label: "Usuários",       Icon: Users    },
-      { href: "/settings", label: "Configurações",  Icon: Settings },
+      { href: "/users",                label: "Usuários",            Icon: Users    },
+      { href: "/financial-categories", label: "Cat. Financeiras",    Icon: Tag      },
+      { href: "/settings",             label: "Configurações",       Icon: Settings },
     ],
   },
 ]

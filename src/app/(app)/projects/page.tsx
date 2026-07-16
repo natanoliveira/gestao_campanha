@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
+import { fetchWithAuth } from "@/lib/fetch-with-auth";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { buttonVariants } from "@/components/ui/button";
@@ -56,13 +57,11 @@ export default function ProjectsPage() {
   const [status, setStatus] = useState("");
 
   const load = useCallback((query: string, statusFilter: string) => {
-    const token = localStorage.getItem("access_token");
-    if (!token) return;
     const params = new URLSearchParams();
     if (query)        params.set("q", query);
     if (statusFilter) params.set("status", statusFilter);
     setProjects(null);
-    fetch(`/api/v1/projects?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+    fetchWithAuth(`/api/v1/projects?${params}`)
       .then((r) => r.json())
       .then((d) => setProjects(d.data ?? []));
   }, []);

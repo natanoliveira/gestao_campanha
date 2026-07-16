@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { fetchWithAuth } from "@/lib/fetch-with-auth";
 import Link from "next/link";
 import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
@@ -73,7 +74,6 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={cn("rounded bg-border/40 animate-pulse", className)} />;
 }
 
-function getToken() { return localStorage.getItem("access_token") ?? "" }
 function currentRole(): string { try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? "" } catch { return "" } }
 
 const textareaCls = "w-full px-3 py-2 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors resize-none"
@@ -120,7 +120,7 @@ export default function ProjectDetailPage() {
 
   const load = useCallback(() => {
     if (!id) return;
-    fetch(`/api/v1/projects/${id}`, { headers: { Authorization: `Bearer ${getToken()}` } })
+    fetchWithAuth(`/api/v1/projects/${id}`)
       .then((r) => r.json())
       .then(setProject);
   }, [id]);
@@ -301,9 +301,9 @@ function TimelineTab({ projectId, posts, onMutate }: {
     e.preventDefault();
     if (!content.trim()) return;
     setSaving(true);
-    await fetch(`/api/v1/projects/${projectId}/timeline`, {
+    await fetchWithAuth(`/api/v1/projects/${projectId}/timeline`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content }),
     });
     setContent("");
@@ -312,10 +312,7 @@ function TimelineTab({ projectId, posts, onMutate }: {
   }
 
   async function del(postId: string) {
-    await fetch(`/api/v1/projects/${projectId}/timeline/${postId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
+    await fetchWithAuth(`/api/v1/projects/${projectId}/timeline/${postId}`, { method: "DELETE" });
     onMutate();
   }
 
@@ -410,7 +407,7 @@ function CategoryReport({ title, url }: { title: string; url: string }) {
 
   async function load() {
     setLoading(true);
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } });
+    const res = await fetchWithAuth(url);
     setRows(await res.json());
     setLoading(false);
   }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { fetchWithAuth } from "@/lib/fetch-with-auth"
 import { Eye, Pencil, UserX, UserCheck, Trash2, Plus, Search } from "lucide-react"
 import { Dialog } from "@base-ui/react/dialog"
 import { AppDrawer } from "@/components/shared/app-drawer"
@@ -37,10 +38,6 @@ const ROLE_MAP: Record<Role, { variant: BadgeVariant; label: string }> = {
 const ROLES: Role[] = ["ADMIN", "MANAGER", "TREASURER", "COMMUNICATION", "AUDITOR", "MEMBER"]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getToken() {
-  return localStorage.getItem("access_token") ?? ""
-}
 
 function currentRole(): Role | null {
   try {
@@ -97,9 +94,7 @@ export default function UsersPage() {
     if (activeFilter) params.set("active", activeFilter)
     if (showDeleted && isAdmin) params.set("showDeleted", "true")
     setUsers(null)
-    fetch(`/api/v1/users?${params}`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
+    fetchWithAuth(`/api/v1/users?${params}`)
       .then((r) => r.json())
       .then((d) => setUsers(d.data ?? []))
   }, [q, roleFilter, activeFilter, showDeleted, isAdmin])
@@ -108,9 +103,9 @@ export default function UsersPage() {
 
   // Ações destrutivas — preenchidas na Task 7
   async function toggleActive(u: User) {
-    const res = await fetch(`/api/v1/users/${u.id}`, {
+    const res = await fetchWithAuth(`/api/v1/users/${u.id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !u.active }),
     })
     if (!res.ok) throw new Error("Erro ao atualizar status")
@@ -118,10 +113,7 @@ export default function UsersPage() {
   }
 
   async function removeUser(id: string) {
-    const res = await fetch(`/api/v1/users/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
+    const res = await fetchWithAuth(`/api/v1/users/${id}`, { method: "DELETE" })
     if (!res.ok) throw new Error("Erro ao remover usuário")
     load()
   }
@@ -383,9 +375,9 @@ function CreateUserModal({
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/v1/users", {
+      const res = await fetchWithAuth("/api/v1/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       })
       if (!res.ok) {
@@ -492,9 +484,9 @@ function EditUserModal({
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/v1/users/${user.id}`, {
+      const res = await fetchWithAuth(`/api/v1/users/${user.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       })
       if (!res.ok) {
