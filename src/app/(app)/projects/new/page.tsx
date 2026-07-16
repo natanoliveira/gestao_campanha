@@ -8,12 +8,12 @@ import { fetchWithAuth } from "@/lib/fetch-with-auth"
 
 type Status = "DRAFT" | "ACTIVE" | "COMPLETED" | "ARCHIVED"
 
-const inputCls    = "w-full h-9 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors"
-const selectCls   = "w-full h-9 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring cursor-pointer"
-const textareaCls = "w-full px-3 py-2 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors resize-none"
+const inputCls    = "w-full h-9 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 transition-colors"
+const selectCls   = "w-full h-9 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 cursor-pointer"
+const textareaCls = "w-full px-3 py-2 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 transition-colors resize-none"
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[12px] font-medium text-muted-foreground mb-1">{children}</label>
+function FieldLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
+  return <label htmlFor={htmlFor} className="block text-[12px] font-medium text-muted-foreground mb-1">{children}</label>
 }
 
 function toSlug(v: string) {
@@ -78,12 +78,14 @@ export default function NewProjectPage() {
       <div className="p-7 max-w-lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <FieldLabel>Nome *</FieldLabel>
+            <FieldLabel htmlFor="proj-name">Nome *</FieldLabel>
             <input
+              id="proj-name" name="name"
               required minLength={3} maxLength={120}
+              autoComplete="off"
               value={name}
               onChange={e => { setName(e.target.value); if (!slugEdited) setSlug(toSlug(e.target.value)); }}
-              placeholder="Nome do projeto"
+              placeholder="Nome do projeto…"
               className={inputCls}
             />
             {toSlug(name) && (
@@ -94,18 +96,19 @@ export default function NewProjectPage() {
           </div>
 
           <div>
-            <FieldLabel>Descrição</FieldLabel>
+            <FieldLabel htmlFor="proj-desc">Descrição</FieldLabel>
             <textarea
+              id="proj-desc" name="description"
               rows={3} maxLength={500}
               value={description} onChange={e => setDesc(e.target.value)}
-              placeholder="Descreva o projeto..."
+              placeholder="Descreva o projeto…"
               className={textareaCls}
             />
           </div>
 
           <div>
-            <FieldLabel>Status</FieldLabel>
-            <select value={status} onChange={e => setStatus(e.target.value as Status)} className={selectCls}>
+            <FieldLabel htmlFor="proj-status">Status</FieldLabel>
+            <select id="proj-status" name="status" value={status} onChange={e => setStatus(e.target.value as Status)} className={selectCls}>
               <option value="DRAFT">Rascunho</option>
               <option value="ACTIVE">Ativo</option>
               <option value="COMPLETED">Concluído</option>
@@ -115,12 +118,12 @@ export default function NewProjectPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <FieldLabel>Data de início</FieldLabel>
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
+              <FieldLabel htmlFor="proj-start">Data de início</FieldLabel>
+              <input id="proj-start" name="startDate" type="date" autoComplete="off" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
             </div>
             <div>
-              <FieldLabel>Data de fim</FieldLabel>
-              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputCls} />
+              <FieldLabel htmlFor="proj-end">Data de fim</FieldLabel>
+              <input id="proj-end" name="endDate" type="date" autoComplete="off" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputCls} />
             </div>
           </div>
 
@@ -137,10 +140,13 @@ export default function NewProjectPage() {
             <div>
               <FieldLabel>Slug público</FieldLabel>
               <input
+                id="proj-slug" name="publicSlug"
                 value={publicSlug}
                 onChange={e => { setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); setSlugEdited(true); }}
-                placeholder="ex: campanha-2025"
+                placeholder="ex: campanha-2025…"
                 pattern="^[a-z0-9-]+$"
+                autoComplete="off"
+                spellCheck={false}
                 required
                 className={inputCls}
               />

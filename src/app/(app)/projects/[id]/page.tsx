@@ -77,8 +77,8 @@ function Skeleton({ className }: { className?: string }) {
 
 function currentRole(): string { try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? "" } catch { return "" } }
 
-const textareaCls = "w-full px-3 py-2 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors resize-none"
-const inputCls = "w-full h-8 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors";
+const textareaCls = "w-full px-3 py-2 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 transition-colors resize-none"
+const inputCls = "w-full h-8 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 transition-colors";
 const dialogPopupCls = "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 outline-none";
 const overlayBackdropCls = "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm";
 
@@ -214,7 +214,7 @@ export default function ProjectDetailPage() {
                 target="_blank"
                 className="flex items-center gap-1.5 text-[12px] text-white/80 border border-white/20 rounded-md px-3 py-1.5 hover:bg-white/10 transition-colors"
               >
-                <ExternalLink className="size-3" />
+                <ExternalLink className="size-3" aria-hidden="true" />
                 Portal Público
               </Link>
             )}
@@ -224,7 +224,7 @@ export default function ProjectDetailPage() {
                 onClick={openEdit}
                 className="flex items-center gap-1.5 text-[12px] text-white/80 border border-white/20 rounded-md px-3 py-1.5 hover:bg-white/10 transition-colors cursor-pointer"
               >
-                <Pencil className="size-3" />
+                <Pencil className="size-3" aria-hidden="true" />
                 Editar
               </button>
             )}
@@ -352,19 +352,19 @@ export default function ProjectDetailPage() {
             <h2 className="text-[15px] font-semibold mb-4">Editar Projeto</h2>
             <form onSubmit={submitEdit} className="space-y-3">
               <div>
-                <label className="block text-[12px] text-muted-foreground mb-1">Nome</label>
-                <input value={editName} onChange={(e) => { setEditName(e.target.value); if (!editSlugEdited) setEditSlug(toSlug(e.target.value)); }} required className={inputCls} />
+                <label htmlFor="edit-name" className="block text-[12px] text-muted-foreground mb-1">Nome</label>
+                <input id="edit-name" name="name" autoComplete="off" value={editName} onChange={(e) => { setEditName(e.target.value); if (!editSlugEdited) setEditSlug(toSlug(e.target.value)); }} required className={inputCls} />
                 {toSlug(editName) && (
                   <p className="text-[11px] text-muted-foreground mt-1">Slug: <span className="font-mono">{toSlug(editName)}</span></p>
                 )}
               </div>
               <div>
-                <label className="block text-[12px] text-muted-foreground mb-1">Descrição</label>
-                <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={3} className={textareaCls} />
+                <label htmlFor="edit-desc" className="block text-[12px] text-muted-foreground mb-1">Descrição</label>
+                <textarea id="edit-desc" name="description" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={3} className={textareaCls} />
               </div>
               <div>
-                <label className="block text-[12px] text-muted-foreground mb-1">Status</label>
-                <select value={editStatus} onChange={(e) => setEditStatus(e.target.value as ProjectStatus)}
+                <label htmlFor="edit-status" className="block text-[12px] text-muted-foreground mb-1">Status</label>
+                <select id="edit-status" name="status" value={editStatus} onChange={(e) => setEditStatus(e.target.value as ProjectStatus)}
                   className={cn(inputCls, "cursor-pointer")}>
                   <option value="DRAFT">Rascunho</option>
                   <option value="ACTIVE">Ativo</option>
@@ -378,18 +378,18 @@ export default function ProjectDetailPage() {
               </div>
               {editIsPublic && (
                 <div>
-                  <label className="block text-[12px] text-muted-foreground mb-1">Slug público</label>
-                  <input value={editSlug} onChange={(e) => { setEditSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); setEditSlugEdited(true); }} placeholder="minha-campanha" className={inputCls} />
+                  <label htmlFor="edit-slug" className="block text-[12px] text-muted-foreground mb-1">Slug público</label>
+                  <input id="edit-slug" name="publicSlug" autoComplete="off" spellCheck={false} value={editSlug} onChange={(e) => { setEditSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); setEditSlugEdited(true); }} placeholder="minha-campanha…" className={inputCls} />
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] text-muted-foreground mb-1">Início</label>
-                  <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className={inputCls} />
+                  <label htmlFor="edit-start" className="block text-[12px] text-muted-foreground mb-1">Início</label>
+                  <input id="edit-start" name="startDate" type="date" autoComplete="off" value={editStart} onChange={(e) => setEditStart(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-[12px] text-muted-foreground mb-1">Fim</label>
-                  <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className={inputCls} />
+                  <label htmlFor="edit-end" className="block text-[12px] text-muted-foreground mb-1">Fim</label>
+                  <input id="edit-end" name="endDate" type="date" autoComplete="off" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className={inputCls} />
                 </div>
               </div>
               <div className="flex gap-2 pt-1">
@@ -467,14 +467,14 @@ function TimelineTab({ projectId, posts, onMutate }: {
         {posts.map((post) => (
           <div key={post.id} className="flex gap-3 py-3 border-b border-border last:border-0">
             <div className="size-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-              <MessageSquare className="size-3.5 text-primary" />
+              <MessageSquare className="size-3.5 text-primary" aria-hidden="true" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-text-subtle">{post.author.name} · {timeAgo(post.publishedAt)}</span>
                 {role === "ADMIN" && (
-                  <button onClick={() => del(post.id)} className="text-destructive hover:opacity-80 cursor-pointer">
-                    <Trash2 className="size-3.5" />
+                  <button onClick={() => del(post.id)} aria-label="Remover post" className="text-destructive hover:opacity-80 cursor-pointer">
+                    <Trash2 className="size-3.5" aria-hidden="true" />
                   </button>
                 )}
               </div>
