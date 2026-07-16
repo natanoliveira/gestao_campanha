@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { fetchWithAuth } from "@/lib/fetch-with-auth";
 import Link from "next/link";
-import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2 } from "lucide-react";
+import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2, Pencil } from "lucide-react";
+import { Dialog } from "@base-ui/react/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/shared/progress-bar";
@@ -77,6 +78,13 @@ function Skeleton({ className }: { className?: string }) {
 function currentRole(): string { try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? "" } catch { return "" } }
 
 const textareaCls = "w-full px-3 py-2 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors resize-none"
+const inputCls = "w-full h-8 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-colors";
+const dialogPopupCls = "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 outline-none";
+const overlayBackdropCls = "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm";
+
+function toSlug(v: string) {
+  return v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 
 /* ── tab types ── */
 type Tab = "resumo" | "iniciativas" | "timeline" | "contas";
@@ -117,6 +125,50 @@ export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [tab, setTab] = useState<Tab>("resumo");
+  const [editOpen, setEditOpen]   = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editName, setEditName]   = useState("");
+  const [editDesc, setEditDesc]   = useState("");
+  const [editStatus, setEditStatus] = useState<ProjectStatus>("DRAFT");
+  const [editIsPublic, setEditIsPublic] = useState(false);
+  const [editSlug, setEditSlug]       = useState("");
+  const [editSlugEdited, setEditSlugEdited] = useState(false);
+  const [editStart, setEditStart]     = useState("");
+  const [editEnd, setEditEnd]         = useState("");
+
+  function openEdit() {
+    if (!project) return;
+    setEditName(project.name);
+    setEditDesc(project.description ?? "");
+    setEditStatus(project.status);
+    setEditIsPublic(project.isPublic);
+    setEditSlug(project.publicSlug ?? "");
+    setEditSlugEdited(!!project.publicSlug);
+    setEditStart(project.startDate ? project.startDate.slice(0, 10) : "");
+    setEditEnd(project.endDate ? project.endDate.slice(0, 10) : "");
+    setEditOpen(true);
+  }
+
+  async function submitEdit(e: React.FormEvent) {
+    e.preventDefault();
+    setEditSaving(true);
+    await fetchWithAuth(`/api/v1/projects/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: editName,
+        description: editDesc || undefined,
+        status: editStatus,
+        isPublic: editIsPublic,
+        publicSlug: editSlug || undefined,
+        startDate: editStart ? new Date(editStart).toISOString() : undefined,
+        endDate: editEnd ? new Date(editEnd).toISOString() : undefined,
+      }),
+    });
+    setEditSaving(false);
+    setEditOpen(false);
+    load();
+  }
 
   const load = useCallback(() => {
     if (!id) return;
@@ -167,6 +219,15 @@ export default function ProjectDetailPage() {
               </Link>
             )}
             {project && <Badge variant={statusVariant}>{statusLabel}</Badge>}
+            {project && (currentRole() === "ADMIN" || currentRole() === "MANAGER") && (
+              <button
+                onClick={openEdit}
+                className="flex items-center gap-1.5 text-[12px] text-white/80 border border-white/20 rounded-md px-3 py-1.5 hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <Pencil className="size-3" />
+                Editar
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -282,6 +343,68 @@ export default function ProjectDetailPage() {
           />
         )}
       </div>
+
+      {/* ── Edit Project Modal ── */}
+      <Dialog.Root open={editOpen} onOpenChange={setEditOpen}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className={overlayBackdropCls} />
+          <Dialog.Popup className={dialogPopupCls}>
+            <h2 className="text-[15px] font-semibold mb-4">Editar Projeto</h2>
+            <form onSubmit={submitEdit} className="space-y-3">
+              <div>
+                <label className="block text-[12px] text-muted-foreground mb-1">Nome</label>
+                <input value={editName} onChange={(e) => { setEditName(e.target.value); if (!editSlugEdited) setEditSlug(toSlug(e.target.value)); }} required className={inputCls} />
+                {toSlug(editName) && (
+                  <p className="text-[11px] text-muted-foreground mt-1">Slug: <span className="font-mono">{toSlug(editName)}</span></p>
+                )}
+              </div>
+              <div>
+                <label className="block text-[12px] text-muted-foreground mb-1">Descrição</label>
+                <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={3} className={textareaCls} />
+              </div>
+              <div>
+                <label className="block text-[12px] text-muted-foreground mb-1">Status</label>
+                <select value={editStatus} onChange={(e) => setEditStatus(e.target.value as ProjectStatus)}
+                  className={cn(inputCls, "cursor-pointer")}>
+                  <option value="DRAFT">Rascunho</option>
+                  <option value="ACTIVE">Ativo</option>
+                  <option value="COMPLETED">Concluído</option>
+                  <option value="ARCHIVED">Arquivado</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="editIsPublic" checked={editIsPublic} onChange={(e) => setEditIsPublic(e.target.checked)} className="size-4 cursor-pointer" />
+                <label htmlFor="editIsPublic" className="text-[13px] cursor-pointer">Portal público</label>
+              </div>
+              {editIsPublic && (
+                <div>
+                  <label className="block text-[12px] text-muted-foreground mb-1">Slug público</label>
+                  <input value={editSlug} onChange={(e) => { setEditSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); setEditSlugEdited(true); }} placeholder="minha-campanha" className={inputCls} />
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[12px] text-muted-foreground mb-1">Início</label>
+                  <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-[12px] text-muted-foreground mb-1">Fim</label>
+                  <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className={inputCls} />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="submit" disabled={editSaving}
+                  className="flex-1 h-8 text-[13px] bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer">
+                  {editSaving ? "Salvando…" : "Salvar"}
+                </button>
+                <Dialog.Close render={<button type="button" className="flex-1 h-8 text-[13px] border border-border rounded-lg hover:bg-surface-2 transition-colors cursor-pointer" />}>
+                  Cancelar
+                </Dialog.Close>
+              </div>
+            </form>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

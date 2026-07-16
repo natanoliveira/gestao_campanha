@@ -16,6 +16,15 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-[12px] font-medium text-muted-foreground mb-1">{children}</label>
 }
 
+function toSlug(v: string) {
+  return v
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+}
+
 export default function NewProjectPage() {
   const router = useRouter()
   const [name, setName]             = useState("")
@@ -23,6 +32,7 @@ export default function NewProjectPage() {
   const [status, setStatus]         = useState<Status>("DRAFT")
   const [isPublic, setIsPublic]     = useState(false)
   const [publicSlug, setSlug]       = useState("")
+  const [slugEdited, setSlugEdited] = useState(false)
   const [startDate, setStartDate]   = useState("")
   const [endDate, setEndDate]       = useState("")
   const [loading, setLoading]       = useState(false)
@@ -71,10 +81,16 @@ export default function NewProjectPage() {
             <FieldLabel>Nome *</FieldLabel>
             <input
               required minLength={3} maxLength={120}
-              value={name} onChange={e => setName(e.target.value)}
+              value={name}
+              onChange={e => { setName(e.target.value); if (!slugEdited) setSlug(toSlug(e.target.value)); }}
               placeholder="Nome do projeto"
               className={inputCls}
             />
+            {toSlug(name) && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Slug: <span className="font-mono">{toSlug(name)}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -103,7 +119,7 @@ export default function NewProjectPage() {
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
             </div>
             <div>
-              <FieldLabel>Data de término</FieldLabel>
+              <FieldLabel>Data de fim</FieldLabel>
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputCls} />
             </div>
           </div>
@@ -111,7 +127,7 @@ export default function NewProjectPage() {
           <label className="flex items-center gap-2 text-[13px] text-muted-foreground cursor-pointer select-none">
             <input
               type="checkbox" checked={isPublic}
-              onChange={e => setIsPublic(e.target.checked)}
+              onChange={e => { setIsPublic(e.target.checked); if (e.target.checked && !slugEdited) setSlug(toSlug(name)); }}
               className="accent-primary"
             />
             Portal público
@@ -122,9 +138,10 @@ export default function NewProjectPage() {
               <FieldLabel>Slug público</FieldLabel>
               <input
                 value={publicSlug}
-                onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+                onChange={e => { setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); setSlugEdited(true); }}
                 placeholder="ex: campanha-2025"
                 pattern="^[a-z0-9-]+$"
+                required
                 className={inputCls}
               />
               <p className="text-[11px] text-muted-foreground mt-1">Apenas letras minúsculas, números e hífens.</p>
