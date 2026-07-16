@@ -16,7 +16,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
         initiatives: {
           where: { deletedAt: null },
           orderBy: { priority: "asc" },
-          select: { id: true, name: true, goal: true, status: true },
+          select: {
+            id: true, name: true, goal: true, status: true,
+            entries: { where: { deletedAt: null }, select: { amount: true } },
+          },
         },
         timelinePosts: {
           where: { deletedAt: null },
@@ -61,7 +64,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
         supporters:  project._count.financialEntries,
         balance:     totalIn - totalOut,
       },
-      initiatives:      project.initiatives,
+      initiatives: project.initiatives.map(({ entries, ...i }) => ({
+        ...i,
+        raised: entries.reduce((s, e) => s + Number(e.amount), 0),
+      })),
       timelinePosts:    project.timelinePosts,
       financialEntries: project.financialEntries,
       financialExits:   project.financialExits,
