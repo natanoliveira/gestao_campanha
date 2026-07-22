@@ -137,10 +137,17 @@ Após concluir qualquer implementação, revisar:
 
 Executar `/simplify` antes de apresentar código ao usuário.
 
+## Infra e Deploy
+
+- `vercel.json` na raiz com todas as envs mapeadas
+- Deploy alvo: Vercel + Neon (em andamento)
+- `JWT_SECRET` e `JWT_REFRESH_SECRET` gerados e gravados no `.env` (48 bytes, base64)
+- Ao subir para Vercel: copiar os mesmos valores do `.env` para o dashboard (ou gerar novos — usuários dev perderão sessão)
+
 ## Pendências
 
 - Instalar Vitest: `npm install -D vitest` (config já existe em `vitest.config.ts`)
 - Stripe: substituir chaves placeholder no `.env` (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PREMIUM`)
 - Painel de decisão / alertas avançados (brainstorming adiado)
 - Upload S3/R2 — lib pronta (`uploadFile`, `deleteFile`, `getPresignedUrl`), falta UI
-- Deploy Vercel — `vercel.json` pronto, falta configurar envs no dashboard
+- Configurar envs no Vercel dashboard após deploy
