@@ -79,11 +79,11 @@ export default function LoginPage() {
         {/* Glow decorativo */}
         <div
           className="pointer-events-none absolute -top-40 -left-20 size-[500px] rounded-full opacity-20"
-          style={{ background: "radial-gradient(circle, #6366f1 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
         />
         <div
           className="pointer-events-none absolute bottom-0 right-0 size-[360px] rounded-full opacity-10"
-          style={{ background: "radial-gradient(circle, #818cf8 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, #d97706 0%, transparent 70%)" }}
         />
 
         {/* Logo */}

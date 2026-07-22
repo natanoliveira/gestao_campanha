@@ -164,7 +164,7 @@ export default function PublicPortalPage() {
               className="h-full rounded-full transition-all duration-700"
               style={{
                 width: `${s?.goalPercent ?? 0}%`,
-                background: "linear-gradient(90deg, #6366f1, #818cf8)",
+                background: "linear-gradient(90deg, var(--primary), #d97706)",
               }}
             />
           </div>
