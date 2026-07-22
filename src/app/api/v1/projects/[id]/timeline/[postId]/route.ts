@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string; postId: string }> };
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN"]);
+    authorize(payload, "org:manage");
     const { id, postId } = await params;
     await timelineService.remove(postId, id);
     return new Response(null, { status: 204 });

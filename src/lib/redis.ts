@@ -20,3 +20,12 @@ function memDel(key: string): Promise<void> {
 }
 
 export const redis = { get: memGet, set: memSet, del: memDel };
+
+// ponytail: sliding window simples; upgrade para Lua script atômico se precisar exatidão sob concorrência
+export async function rateLimit(key: string, limit: number, windowSec: number): Promise<{ ok: boolean; remaining: number }> {
+  const raw = await redis.get(key);
+  const count = raw ? parseInt(raw) + 1 : 1;
+  if (count === 1) await redis.set(key, "1", "EX", windowSec);
+  else await redis.set(key, String(count), "EX", windowSec);
+  return { ok: count <= limit, remaining: Math.max(0, limit - count) };
+}

@@ -1,0 +1,22 @@
+{
+  "framework": "nextjs",
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "JWT_SECRET": "@jwt_secret",
+    "REFRESH_TOKEN_SECRET": "@refresh_token_secret",
+    "STRIPE_SECRET_KEY": "@stripe_secret_key",
+    "STRIPE_WEBHOOK_SECRET": "@stripe_webhook_secret",
+    "STRIPE_PRICE_ID_PREMIUM": "@stripe_price_id_premium",
+    "S3_ENDPOINT": "@s3_endpoint",
+    "S3_ACCESS_KEY_ID": "@s3_access_key_id",
+    "S3_SECRET_ACCESS_KEY": "@s3_secret_access_key",
+    "S3_BUCKET": "@s3_bucket",
+    "S3_PUBLIC_URL": "@s3_public_url",
+    "REDIS_URL": "@redis_url"
+  },
+  "functions": {
+    "src/app/api/v1/webhooks/stripe/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}

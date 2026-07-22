@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 export async function PUT(req: NextRequest, { params }: Ctx) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN", "MANAGER"]);
+    authorize(payload, "initiative:write");
     const { id, initId } = await params;
     const dto = updateInitiativeSchema.parse(await req.json());
     return Response.json(await initiativeService.update(initId, id, payload.organizationId, dto));
@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN"]);
+    authorize(payload, "org:manage");
     const { id, initId } = await params;
     await initiativeService.remove(initId, id, payload.organizationId);
     return new Response(null, { status: 204 });

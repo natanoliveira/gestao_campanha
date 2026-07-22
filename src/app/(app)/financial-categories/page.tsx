@@ -1,3 +1,4 @@
+import { can } from "@/lib/permissions";
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -31,7 +32,7 @@ export default function FinancialCategoriesPage() {
   const [name, setName]         = useState("");
   const [saving, setSaving]     = useState(false);
   const role                    = currentRole();
-  const canManage               = role === "ADMIN" || role === "MANAGER";
+  const canManage               = can(role, "category:write");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -117,7 +118,7 @@ export default function FinancialCategoriesPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => openEdit(cat)} className="text-muted-foreground hover:text-foreground cursor-pointer"><Pencil className="size-3.5" /></button>
-                      {role === "ADMIN" && (
+                      {can(role, "org:manage") && (
                         <ConfirmDialog
                           trigger={
                             <button className="text-destructive hover:opacity-80 cursor-pointer">

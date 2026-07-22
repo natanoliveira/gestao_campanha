@@ -7,6 +7,7 @@ export type JwtPayload = {
   userId: string;
   organizationId: string;
   role: string;
+  isMaster?: boolean;
 };
 
 export function signAccessToken(payload: JwtPayload) {

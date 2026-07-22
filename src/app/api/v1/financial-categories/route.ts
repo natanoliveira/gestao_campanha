@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN", "MANAGER"]);
+    authorize(payload, "category:write");
     const dto = createFinancialCategorySchema.parse(await req.json());
     return Response.json(await financialCategoryService.create(payload.organizationId, dto), { status: 201 });
   } catch (e) { return errorResponse(e); }

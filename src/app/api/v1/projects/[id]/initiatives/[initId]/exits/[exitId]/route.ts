@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ initId: string; exitId: string }> };
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN"]);
+    authorize(payload, "org:manage");
     const { initId, exitId } = await params;
     await financialService.removeExit(exitId, initId, payload.organizationId);
     return new Response(null, { status: 204 });

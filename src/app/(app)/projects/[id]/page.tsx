@@ -1,3 +1,4 @@
+import { can } from "@/lib/permissions";
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -5,6 +6,7 @@ import { useParams } from "next/navigation";
 import { fetchWithAuth } from "@/lib/fetch-with-auth";
 import Link from "next/link";
 import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2, Pencil } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Dialog } from "@base-ui/react/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
@@ -20,6 +22,7 @@ type InitiativeStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 type Initiative = {
   id: string; name: string; description?: string;
   goal: string; raised: string; status: InitiativeStatus; priority: number;
+  endDate?: string;
 };
 type TimelinePost = {
   id: string; content: string; type: string; publishedAt: string;
@@ -96,7 +99,11 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 /* ── sub-components ── */
-function InitiativeCard({ init }: { init: Initiative }) {
+function InitiativeCard({ init, onEdit, onDelete }: {
+  init: Initiative;
+  onEdit?: () => void;
+  onDelete?: () => Promise<void>;
+}) {
   const goal   = Number(init.goal);
   const raised = Number(init.raised);
   const pct    = goal > 0 ? Math.round((raised / goal) * 100) : 0;
@@ -110,6 +117,21 @@ function InitiativeCard({ init }: { init: Initiative }) {
           <span className={cn("text-[13px] font-semibold", pct >= 100 ? "text-success" : "text-accent-foreground")}>
             {pct}%
           </span>
+          {onEdit && (
+            <button onClick={onEdit} aria-label="Editar iniciativa" className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 cursor-pointer">
+              <Pencil className="size-3" aria-hidden="true" />
+            </button>
+          )}
+          {onDelete && (
+            <ConfirmDialog
+              trigger={<button aria-label="Excluir iniciativa" className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-surface-2 cursor-pointer"><Trash2 className="size-3" aria-hidden="true" /></button>}
+              title="Excluir iniciativa?"
+              description="Esta ação não pode ser desfeita."
+              confirmLabel="Excluir"
+              variant="destructive"
+              onConfirm={onDelete}
+            />
+          )}
         </div>
       </div>
       <ProgressBar value={pct} variant={progressVariant(pct)} />
@@ -310,22 +332,7 @@ export default function ProjectDetailPage() {
 
         {/* INICIATIVAS */}
         {tab === "iniciativas" && (
-          <div className="space-y-2.5">
-            {/* Link para gestão completa */}
-            <div className="flex justify-end mb-1">
-              <Link
-                href={`/projects/${project?.id}/initiatives`}
-                className="text-[12px] text-primary hover:underline"
-              >
-                Gerenciar Iniciativas →
-              </Link>
-            </div>
-
-            {project?.initiatives?.length === 0 && (
-              <p className="text-[13px] text-muted-foreground">Nenhuma iniciativa cadastrada.</p>
-            )}
-            {project?.initiatives?.map((init) => <InitiativeCard key={init.id} init={init} />)}
-          </div>
+          <InitiativasTab projectId={id} initiatives={project?.initiatives ?? []} onMutate={load} />
         )}
 
         {/* TIMELINE */}
@@ -340,6 +347,8 @@ export default function ProjectDetailPage() {
             entries={project?.financialEntries ?? []}
             exits={project?.financialExits ?? []}
             totalIn={totalIn} totalOut={totalOut}
+            initiatives={project?.initiatives ?? []}
+            onMutate={load}
           />
         )}
       </div>
@@ -418,7 +427,7 @@ function TimelineTab({ projectId, posts, onMutate }: {
   const [content, setContent] = useState("");
   const [saving, setSaving]   = useState(false);
   const role = currentRole();
-  const canPost = role === "ADMIN" || role === "MANAGER";
+  const canPost = can(role, "timeline:write");
 
   async function submit(e: React.SyntheticEvent) {
     e.preventDefault();
@@ -472,7 +481,7 @@ function TimelineTab({ projectId, posts, onMutate }: {
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-text-subtle">{post.author.name} · {timeAgo(post.publishedAt)}</span>
-                {role === "ADMIN" && (
+                {can(role, "org:manage") && (
                   <button onClick={() => del(post.id)} aria-label="Remover post" className="text-destructive hover:opacity-80 cursor-pointer">
                     <Trash2 className="size-3.5" aria-hidden="true" />
                   </button>
@@ -576,27 +585,242 @@ function CategoryReport({ title, url }: { title: string; url: string }) {
   );
 }
 
-/* ── ContasTab — rollup somente leitura ── */
-function ContasTab({ projectId, entries, exits, totalIn, totalOut }: {
-  projectId: string; entries: FinancialRow[]; exits: FinancialRow[]; totalIn: number; totalOut: number;
+/* ── InitiativasTab ── */
+const selectCls = "w-full h-9 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring cursor-pointer";
+
+type InitForm = {
+  name: string; description: string; goal: string; minGoal: string;
+  priority: string; status: InitiativeStatus; endDate: string;
+};
+const INIT_FORM_EMPTY: InitForm = { name: "", description: "", goal: "", minGoal: "", priority: "0", status: "PENDING", endDate: "" };
+
+function InitiativasTab({ projectId, initiatives, onMutate }: {
+  projectId: string; initiatives: Initiative[]; onMutate: () => void;
 }) {
+  const role = currentRole();
+  const canManage = can(role, "project:write");
+  const isAdmin = can(role, "org:manage");
+
+  const [open, setOpen] = useState(false);
+  const [editingInit, setEditingInit] = useState<Initiative | null>(null);
+  const [form, setForm] = useState<InitForm>(INIT_FORM_EMPTY);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  function openCreate() { setEditingInit(null); setForm(INIT_FORM_EMPTY); setErr(null); setOpen(true); }
+  function openEdit(init: Initiative) {
+    setEditingInit(init);
+    setForm({
+      name: init.name, description: init.description ?? "",
+      goal: init.goal, minGoal: "", priority: String(init.priority),
+      status: init.status,
+      endDate: init.endDate ? init.endDate.slice(0, 10) : "",
+    });
+    setErr(null);
+    setOpen(true);
+  }
+
+  function set(k: keyof InitForm) { return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm(f => ({ ...f, [k]: e.target.value })); }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true); setErr(null);
+    const body: Record<string, unknown> = {
+      name: form.name,
+      description: form.description || undefined,
+      goal: Number(form.goal),
+      minGoal: form.minGoal ? Number(form.minGoal) : undefined,
+      priority: Number(form.priority),
+      status: form.status,
+      endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
+    };
+    const url = editingInit
+      ? `/api/v1/projects/${projectId}/initiatives/${editingInit.id}`
+      : `/api/v1/projects/${projectId}/initiatives`;
+    const res = await fetchWithAuth(url, {
+      method: editingInit ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+    if (!res.ok) { setErr("Erro ao salvar. Verifique os campos e tente novamente."); return; }
+    setOpen(false);
+    onMutate();
+  }
+
+  async function removeInit(initId: string) {
+    await fetchWithAuth(`/api/v1/projects/${projectId}/initiatives/${initId}`, { method: "DELETE" });
+    onMutate();
+  }
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between mb-1">
+        <Link href={`/projects/${projectId}/initiatives`} className="text-[12px] text-primary hover:underline">
+          Gerenciar Iniciativas →
+        </Link>
+        {canManage && (
+          <button onClick={openCreate} className="flex items-center gap-1.5 h-8 px-3 text-[12px] bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
+            <Plus className="size-3" aria-hidden="true" /> Nova Iniciativa
+          </button>
+        )}
+      </div>
+
+      {initiatives.length === 0 && (
+        <p className="text-[13px] text-muted-foreground">Nenhuma iniciativa cadastrada.</p>
+      )}
+      {initiatives.map((init) => (
+        <InitiativeCard
+          key={init.id}
+          init={init}
+          onEdit={canManage ? () => openEdit(init) : undefined}
+          onDelete={isAdmin ? () => removeInit(init.id) : undefined}
+        />
+      ))}
+
+      <Dialog.Root open={open} onOpenChange={setOpen}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className={overlayBackdropCls} />
+          <Dialog.Popup className={dialogPopupCls}>
+            <h2 className="text-[15px] font-semibold mb-4">{editingInit ? "Editar Iniciativa" : "Nova Iniciativa"}</h2>
+            <form onSubmit={submit} className="space-y-3">
+              <div>
+                <label htmlFor="init-name" className="block text-[12px] text-muted-foreground mb-1">Nome *</label>
+                <input id="init-name" required value={form.name} onChange={set("name")} className={inputCls} autoComplete="off" />
+              </div>
+              <div>
+                <label htmlFor="init-desc" className="block text-[12px] text-muted-foreground mb-1">Descrição</label>
+                <textarea id="init-desc" value={form.description} onChange={set("description")} rows={2} className={textareaCls} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="init-goal" className="block text-[12px] text-muted-foreground mb-1">Meta (R$) *</label>
+                  <input id="init-goal" required type="number" min="0" step="0.01" value={form.goal} onChange={set("goal")} className={inputCls} />
+                </div>
+                <div>
+                  <label htmlFor="init-mingoal" className="block text-[12px] text-muted-foreground mb-1">Meta Mínima (R$)</label>
+                  <input id="init-mingoal" type="number" min="0" step="0.01" value={form.minGoal} onChange={set("minGoal")} className={inputCls} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="init-priority" className="block text-[12px] text-muted-foreground mb-1">Prioridade</label>
+                  <input id="init-priority" type="number" value={form.priority} onChange={set("priority")} className={inputCls} />
+                </div>
+                <div>
+                  <label htmlFor="init-status" className="block text-[12px] text-muted-foreground mb-1">Status</label>
+                  <select id="init-status" value={form.status} onChange={set("status")} className={selectCls}>
+                    <option value="PENDING">Pendente</option>
+                    <option value="IN_PROGRESS">Em andamento</option>
+                    <option value="COMPLETED">Concluído</option>
+                    <option value="CANCELLED">Cancelado</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="init-enddate" className="block text-[12px] text-muted-foreground mb-1">Data de Encerramento</label>
+                <input id="init-enddate" type="date" value={form.endDate} onChange={set("endDate")} className={inputCls} />
+              </div>
+              {err && <p className="text-[12px] text-destructive bg-destructive/10 rounded px-3 py-2">{err}</p>}
+              <div className="flex gap-2 pt-1">
+                <button type="submit" disabled={saving} className="flex-1 h-8 text-[13px] bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5">
+                  {saving ? <Spinner className="size-3" /> : null}
+                  {editingInit ? "Salvar" : "Criar"}
+                </button>
+                <Dialog.Close render={<button type="button" className="flex-1 h-8 text-[13px] border border-border rounded-lg hover:bg-surface-2 transition-colors cursor-pointer" />}>
+                  Cancelar
+                </Dialog.Close>
+              </div>
+            </form>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </div>
+  );
+}
+
+/* ── ContasTab ── */
+type FinCategory = { id: string; name: string };
+type LancForm = {
+  type: "ENTRY" | "EXIT"; initId: string; description: string;
+  amount: string; date: string; categoryId: string; supplier: string;
+};
+const LANC_FORM_EMPTY: LancForm = { type: "ENTRY", initId: "", description: "", amount: "", date: "", categoryId: "", supplier: "" };
+
+function ContasTab({ projectId, entries, exits, totalIn, totalOut, initiatives, onMutate }: {
+  projectId: string; entries: FinancialRow[]; exits: FinancialRow[]; totalIn: number; totalOut: number;
+  initiatives: Initiative[]; onMutate: () => void;
+}) {
+  const role = currentRole();
+  const canManage = can(role, "project:write");
+
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<LancForm>(LANC_FORM_EMPTY);
+  const [categories, setCategories] = useState<FinCategory[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // reload categories when type changes or modal opens
+  useEffect(() => {
+    if (!open) return;
+    fetchWithAuth(`/api/v1/financial-categories?type=${form.type}`)
+      .then(r => r.json())
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, [open, form.type]);
+
+  function set(k: keyof LancForm) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm(f => ({ ...f, [k]: e.target.value }));
+  }
+
+  function openModal() { setForm(LANC_FORM_EMPTY); setErr(null); setOpen(true); }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.initId) { setErr("Selecione uma iniciativa."); return; }
+    setSaving(true); setErr(null);
+    const base = { description: form.description, amount: Number(form.amount), date: new Date(form.date).toISOString(), categoryId: form.categoryId || undefined };
+    const body = form.type === "EXIT" ? { ...base, supplier: form.supplier || undefined } : base;
+    const endpoint = form.type === "ENTRY" ? "entries" : "exits";
+    const res = await fetchWithAuth(`/api/v1/projects/${projectId}/initiatives/${form.initId}/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+    if (!res.ok) { setErr("Erro ao salvar. Verifique os campos e tente novamente."); return; }
+    setOpen(false);
+    onMutate();
+  }
+
   const balance = totalIn - totalOut;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-[11px] text-text-subtle mb-1">Total Entradas</p>
-          <p className="text-[18px] font-semibold text-success">{fmt(totalIn)}</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-[11px] text-text-subtle mb-1">Total Despesas</p>
-          <p className="text-[18px] font-semibold text-destructive">{fmt(totalOut)}</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-[11px] text-text-subtle mb-1">Saldo</p>
-          <p className={cn("text-[18px] font-semibold", balance >= 0 ? "text-success" : "text-destructive")}>{fmt(balance)}</p>
+      <div className="flex items-center justify-between">
+        <div className="grid grid-cols-3 gap-3 flex-1">
+          <div className="bg-card border border-border rounded-lg p-4">
+            <p className="text-[11px] text-text-subtle mb-1">Total Entradas</p>
+            <p className="text-[18px] font-semibold text-success">{fmt(totalIn)}</p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-4">
+            <p className="text-[11px] text-text-subtle mb-1">Total Despesas</p>
+            <p className="text-[18px] font-semibold text-destructive">{fmt(totalOut)}</p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-4">
+            <p className="text-[11px] text-text-subtle mb-1">Saldo</p>
+            <p className={cn("text-[18px] font-semibold", balance >= 0 ? "text-success" : "text-destructive")}>{fmt(balance)}</p>
+          </div>
         </div>
       </div>
+
+      {canManage && (
+        <div className="flex justify-end">
+          <button onClick={openModal} className="flex items-center gap-1.5 h-8 px-3 text-[12px] bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
+            <Plus className="size-3" aria-hidden="true" /> Novo Lançamento
+          </button>
+        </div>
+      )}
 
       <div>
         <p className="text-[13px] font-medium mb-3">Entradas por Categoria</p>
@@ -609,6 +833,68 @@ function ContasTab({ projectId, entries, exits, totalIn, totalOut }: {
         <CategoryReport title="Ver relatório de despesas" url={`/api/v1/projects/${projectId}/financial-exits/report`} />
         <FinancialTable rows={exits} showCategory />
       </div>
+
+      <Dialog.Root open={open} onOpenChange={setOpen}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className={overlayBackdropCls} />
+          <Dialog.Popup className={dialogPopupCls}>
+            <h2 className="text-[15px] font-semibold mb-4">Novo Lançamento</h2>
+            <form onSubmit={submit} className="space-y-3">
+              <div>
+                <label htmlFor="lanc-type" className="block text-[12px] text-muted-foreground mb-1">Tipo *</label>
+                <select id="lanc-type" value={form.type} onChange={set("type")} className={selectCls}>
+                  <option value="ENTRY">Entrada</option>
+                  <option value="EXIT">Saída</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="lanc-init" className="block text-[12px] text-muted-foreground mb-1">Iniciativa *</label>
+                <select id="lanc-init" value={form.initId} onChange={set("initId")} className={selectCls}>
+                  <option value="">Selecione...</option>
+                  {initiatives.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="lanc-desc" className="block text-[12px] text-muted-foreground mb-1">Descrição *</label>
+                <input id="lanc-desc" required value={form.description} onChange={set("description")} className={inputCls} autoComplete="off" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="lanc-amount" className="block text-[12px] text-muted-foreground mb-1">Valor (R$) *</label>
+                  <input id="lanc-amount" required type="number" min="0" step="0.01" value={form.amount} onChange={set("amount")} className={inputCls} />
+                </div>
+                <div>
+                  <label htmlFor="lanc-date" className="block text-[12px] text-muted-foreground mb-1">Data *</label>
+                  <input id="lanc-date" required type="date" value={form.date} onChange={set("date")} className={inputCls} />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="lanc-cat" className="block text-[12px] text-muted-foreground mb-1">Categoria</label>
+                <select id="lanc-cat" value={form.categoryId} onChange={set("categoryId")} className={selectCls}>
+                  <option value="">Sem categoria</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              {form.type === "EXIT" && (
+                <div>
+                  <label htmlFor="lanc-supplier" className="block text-[12px] text-muted-foreground mb-1">Fornecedor</label>
+                  <input id="lanc-supplier" value={form.supplier} onChange={set("supplier")} className={inputCls} autoComplete="off" />
+                </div>
+              )}
+              {err && <p className="text-[12px] text-destructive bg-destructive/10 rounded px-3 py-2">{err}</p>}
+              <div className="flex gap-2 pt-1">
+                <button type="submit" disabled={saving} className="flex-1 h-8 text-[13px] bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5">
+                  {saving ? <Spinner className="size-3" /> : null}
+                  Salvar
+                </button>
+                <Dialog.Close render={<button type="button" className="flex-1 h-8 text-[13px] border border-border rounded-lg hover:bg-surface-2 transition-colors cursor-pointer" />}>
+                  Cancelar
+                </Dialog.Close>
+              </div>
+            </form>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

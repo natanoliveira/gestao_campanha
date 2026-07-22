@@ -10,6 +10,7 @@ export const createInitiativeSchema = z.object({
   raised:        z.coerce.number().min(0).optional(),
   priority:      z.coerce.number().int().optional(),
   status:        z.enum(statuses).optional(),
+  endDate:       z.string().optional(),
   responsibleId: z.string().uuid().optional(),
   dependsOnId:   z.string().uuid().optional(),
 });

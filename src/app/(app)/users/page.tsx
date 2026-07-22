@@ -85,7 +85,7 @@ export default function UsersPage() {
   const [editUser, setEditUser]       = useState<User | null>(null)
   const [detailUser, setDetailUser]   = useState<User | null>(null)
 
-  const isAdmin = currentRole() === "ADMIN"
+  const isAdmin = can(currentRole(), "org:manage")
 
   const load = useCallback(() => {
     const params = new URLSearchParams()

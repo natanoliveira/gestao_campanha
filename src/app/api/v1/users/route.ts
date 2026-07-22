@@ -1,3 +1,4 @@
+import { can } from "@/lib/permissions";
 import { NextRequest } from "next/server";
 import { authenticate } from "@/middlewares/authenticate";
 import { authorize } from "@/middlewares/authorize";
@@ -8,10 +9,10 @@ import { errorResponse } from "@/lib/errors";
 export async function GET(req: NextRequest) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN", "MANAGER", "AUDITOR"]);
+    authorize(payload, "user:read");
     const { searchParams } = new URL(req.url);
     const rawParams = Object.fromEntries(searchParams);
-    if (rawParams.showDeleted && payload.role !== "ADMIN") {
+    if (rawParams.showDeleted && !can(payload.role, "org:manage")) {
       delete rawParams.showDeleted;
     }
     const params = listUsersSchema.parse(rawParams);
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN"]);
+    authorize(payload, "org:manage");
     const body = await req.json();
     const dto = createUserSchema.parse(body);
     const user = await userService.create(payload.organizationId, dto);

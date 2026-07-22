@@ -12,11 +12,42 @@ const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  // Planos de assinatura
+  const planBasic = await prisma.plan.upsert({
+    where: { id: "plan-basic" },
+    update: { name: "Basic", maxProjects: 3, maxInitiatives: 5, maxUsers: 5, priceMonthly: 99.90 },
+    create: { id: "plan-basic", name: "Basic", maxProjects: 3, maxInitiatives: 5, maxUsers: 5, priceMonthly: 99.90 },
+  });
+
+  await prisma.plan.upsert({
+    where: { id: "plan-premium" },
+    update: { name: "Premium", maxProjects: -1, maxInitiatives: -1, maxUsers: -1, priceMonthly: 159.90 },
+    create: { id: "plan-premium", name: "Premium", maxProjects: -1, maxInitiatives: -1, maxUsers: -1, priceMonthly: 159.90 },
+  });
+
+  console.log("Planos: Basic e Premium criados");
+
+  // Org do sistema (para usuário master)
+  const sysOrg = await prisma.organization.upsert({
+    where: { slug: "sistema" },
+    update: {},
+    create: { name: "Sistema", slug: "sistema", active: true },
+  });
+
+  // Usuário master
+  const masterHash = await bcrypt.hash("master123", 12);
+  const master = await prisma.user.upsert({
+    where: { email_organizationId: { email: "master@sistema.com", organizationId: sysOrg.id } },
+    update: { isMaster: true },
+    create: { name: "Master", email: "master@sistema.com", organizationId: sysOrg.id, passwordHash: masterHash, role: "ADMIN", isMaster: true, active: true },
+  });
+  console.log(`Master: ${master.email}`);
+
   // Organização principal
   const org = await prisma.organization.upsert({
     where: { slug: "demo-org" },
     update: {},
-    create: { name: "Demo Organização", slug: "demo-org", active: true },
+    create: { name: "Demo Organização", slug: "demo-org", planId: planBasic.id, active: true },
   });
 
   console.log(`Organização: ${org.name} (${org.id})`);

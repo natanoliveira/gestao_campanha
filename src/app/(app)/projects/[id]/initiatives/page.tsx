@@ -1,3 +1,4 @@
+import { can } from "@/lib/permissions";
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
@@ -100,8 +101,8 @@ export default function InitiativesPage() {
   const [detailInit, setDetailInit]     = useState<Initiative | null>(null)
 
   const role             = currentRole()
-  const isAdmin          = role === "ADMIN"
-  const isAdminOrManager = role === "ADMIN" || role === "MANAGER"
+  const isAdmin          = can(role, "org:manage")
+  const isAdminOrManager = can(role, "initiative:write")
 
   const load = useCallback(() => {
     const params = new URLSearchParams()
@@ -603,7 +604,7 @@ function InitiativeModal({ init, projectId, onClose, onMutate }: {
   const [exits, setExits]     = useState<FinancialRow[]>([]);
   const [cats, setCats]       = useState<FinancialCategory[]>([]);
   const role                  = currentRole();
-  const canAdd                = role === "ADMIN" || role === "MANAGER";
+  const canAdd                = can(role, "initiative:write");
 
   const loadEntries = useCallback(() => {
     fetchWithAuth(`/api/v1/projects/${projectId}/initiatives/${init.id}/entries`)
@@ -821,7 +822,7 @@ function FinancialInlineTable({ rows, onDelete, isExit }: {
             {isExit && <th className="text-left px-3 py-2 text-text-subtle font-medium">Fornecedor</th>}
             <th className="text-left px-3 py-2 text-text-subtle font-medium">Data</th>
             <th className="text-right px-3 py-2 text-text-subtle font-medium">Valor</th>
-            {role === "ADMIN" && <th className="px-3 py-2 w-8" />}
+            {can(role, "org:manage") && <th className="px-3 py-2 w-8" />}
           </tr>
         </thead>
         <tbody>
@@ -835,7 +836,7 @@ function FinancialInlineTable({ rows, onDelete, isExit }: {
               {isExit && <td className="px-3 py-2 text-text-subtle">{row.supplier ?? "—"}</td>}
               <td className="px-3 py-2 text-text-subtle">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
               <td className="px-3 py-2 text-right font-medium">{fmt(Number(row.amount))}</td>
-              {role === "ADMIN" && (
+              {can(role, "org:manage") && (
                 <td className="px-3 py-2 text-right">
                   <ConfirmDialog
                     trigger={

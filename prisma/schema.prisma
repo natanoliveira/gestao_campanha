@@ -43,16 +43,34 @@ enum FinancialCategoryType {
   EXIT
 }
 
+model Plan {
+  id             String         @id @default(uuid())
+  name           String
+  maxProjects    Int            @default(3)
+  maxInitiatives Int            @default(5)
+  maxUsers       Int            @default(5)
+  priceMonthly   Decimal        @db.Decimal(8, 2)
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organizations  Organization[]
+
+  @@map("plans")
+}
+
 model Organization {
   id        String    @id @default(uuid())
   name      String
   slug      String    @unique
   logo      String?
+  planId    String?
   active    Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  plan                Plan?               @relation(fields: [planId], references: [id])
   users               User[]
   projects            Project[]
   files               File[]
@@ -71,6 +89,7 @@ model User {
   email          String
   passwordHash   String
   role           Role      @default(MEMBER)
+  isMaster       Boolean   @default(false)
   active         Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -145,6 +164,7 @@ model Initiative {
   minGoal        Decimal?         @db.Decimal(12, 2)
   priority       Int              @default(0)
   status         InitiativeStatus @default(PENDING)
+  endDate        DateTime?
   responsibleId  String?
   dependsOnId    String?
   createdAt      DateTime         @default(now())

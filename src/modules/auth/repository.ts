@@ -11,6 +11,7 @@ export const authRepository = {
         passwordHash: true,
         role: true,
         organizationId: true,
+        isMaster: true,
       },
     });
   },
@@ -18,7 +19,7 @@ export const authRepository = {
   findById(id: string) {
     return prisma.user.findFirst({
       where: { id, deletedAt: null, active: true },
-      select: { id: true, name: true, email: true, role: true, organizationId: true },
+      select: { id: true, name: true, email: true, role: true, organizationId: true, isMaster: true },
     });
   },
 };

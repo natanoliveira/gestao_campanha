@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Preview — Gestão de Campanhas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── Preview shell (neutral) ───────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --shell-bg: #0f0f0f;
+  --shell-card: #181818;
+  --shell-border: #2e2e2e;
+  --shell-text: #e5e5e5;
+  --shell-muted: #888;
+  --shell-accent: #7c85f5;
+  --r: 8px;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-serif: 'IBM Plex Serif', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+body {
+  background: var(--shell-bg);
+  color: var(--shell-text);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  padding: 0 0 80px;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.header {
+  border-bottom: 1px solid var(--shell-border);
+  padding: 28px 40px 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.header h1 {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+}
+.header span { color: var(--shell-muted); font-size: 0.875rem; }
+
+.toc {
+  display: flex;
+  gap: 8px;
+  padding: 16px 40px;
+  border-bottom: 1px solid var(--shell-border);
+  flex-wrap: wrap;
+}
+.toc a {
+  color: var(--shell-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border: 1px solid var(--shell-border);
+  border-radius: 20px;
+  transition: all .15s;
+}
+.toc a:hover { color: var(--shell-text); border-color: var(--shell-accent); }
+
+.section {
+  padding: 48px 40px 0;
+}
+.section-title {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 6px;
+}
+.section-sub {
+  color: var(--shell-muted);
+  font-size: 0.8rem;
+  margin-bottom: 28px;
+}
+
+/* ── Palette tabs / toggle ──────────────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--r);
+  overflow: hidden;
+  width: fit-content;
+  margin-bottom: 28px;
+}
+.tab-btn {
+  background: var(--shell-card);
+  color: var(--shell-muted);
+  border: none;
+  padding: 8px 20px;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all .15s;
+  border-right: 1px solid var(--shell-border);
+}
+.tab-btn:last-child { border-right: none; }
+.tab-btn.active { background: var(--shell-accent); color: #fff; font-weight: 600; }
+.tab-btn:not(.active):hover { color: var(--shell-text); }
+
+.palette-panel { display: none; }
+.palette-panel.active { display: block; }
+
+/* ── Palettes data ──────────────────────────────────────── */
+/* Each palette is a CSS class applied to a scoped container */
+
+/* CURRENT */
+.pal-current {
+  --bg: #0a0a0a;
+  --card: #111111;
+  --surface2: #1a1a1a;
+  --primary: #6366f1;
+  --primary-fg: #fff;
+  --accent: #6366f1;
+  --success: #22c55e;
+  --destructive: #ef4444;
+  --warning: #f59e0b;
+  --border: #2a2a2a;
+  --text: #e5e5e5;
+  --text-muted: #555555;
+  --sidebar-active-bg: #1a1a2e;
+  --sidebar-active-text: #6366f1;
+}
+
+/* PROPOSAL A — Slate/Indigo */
+.pal-a {
+  --bg: #080c14;
+  --card: #0d1220;
+  --surface2: #131926;
+  --primary: #7c85f5;
+  --primary-fg: #fff;
+  --accent: #06b6d4;
+  --success: #10b981;
+  --destructive: #f43f5e;
+  --warning: #fbbf24;
+  --border: #1e2a3a;
+  --text: #e2e8f0;
+  --text-muted: #4a5568;
+  --sidebar-active-bg: #131926;
+  --sidebar-active-text: #7c85f5;
+}
+
+/* PROPOSAL B — Charcoal/Amber */
+.pal-b {
+  --bg: #0c0b0a;
+  --card: #151413;
+  --surface2: #1c1a18;
+  --primary: #f59e0b;
+  --primary-fg: #0c0b0a;
+  --accent: #e8532a;
+  --success: #22c55e;
+  --destructive: #ef4444;
+  --warning: #fbbf24;
+  --border: #2c2824;
+  --text: #e8e4e0;
+  --text-muted: #6b6460;
+  --sidebar-active-bg: #1c1a18;
+  --sidebar-active-text: #f59e0b;
+}
+
+/* ── Section 1: Palette swatches ─────────────────────────── */
+.palettes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+.pal-card {
+  border: 1px solid var(--shell-border);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--shell-card);
+}
+.pal-card-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--shell-border);
+}
+.pal-card-header h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.pal-card-header p { font-size: 0.75rem; color: var(--shell-muted); }
+
+.swatch-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+}
+.swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+.swatch-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.swatch-info { flex: 1; }
+.swatch-name { font-size: 0.75rem; color: var(--shell-text); font-weight: 500; }
+.swatch-hex { font-family: var(--font-mono); font-size: 0.7rem; color: var(--shell-muted); }
+
+.pros-cons {
+  padding: 12px 16px;
+  border-top: 1px solid var(--shell-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pros-cons span {
+  font-size: 0.72rem;
+  color: var(--shell-muted);
+  line-height: 1.5;
+}
+.pros-cons .pro { color: #22c55e; }
+.pros-cons .con { color: #f59e0b; }
+
+/* ── Section 2: KPI Cards ───────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px;
+}
+.kpi-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.kpi-value {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.kpi-sub { font-size: 0.72rem; color: var(--text-muted); }
+
+.kpi-progress {
+  margin-top: 12px;
+}
+.progress-bar {
+  height: 4px;
+  background: var(--surface2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 2px;
+}
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.progress-label span { font-size: 0.68rem; color: var(--text-muted); }
+.progress-label strong { font-size: 0.68rem; color: var(--text); }
+
+/* ── Section 3: Sidebar ─────────────────────────────────── */
+.sidebar-demo {
+  width: 200px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 8px;
+}
+.sidebar-logo {
+  padding: 10px 12px 16px;
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.sidebar-logo span { color: var(--primary); }
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  cursor: default;
+  transition: all .15s;
+  margin-bottom: 2px;
+}
+.sidebar-item.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 600;
+}
+.sidebar-item:not(.active):hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+.sidebar-icon {
+  width: 16px;
+  height: 16px;
+  opacity: .7;
+  fill: currentColor;
+}
+.sidebar-item.active .sidebar-icon { opacity: 1; }
+
+/* ── Section 4: Table ───────────────────────────────────── */
+.table-demo {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.table-demo table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.table-demo thead tr {
+  border-bottom: 1px solid var(--border);
+}
+.table-demo thead th {
+  padding: 10px 16px;
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.table-demo tbody tr {
+  border-bottom: 1px solid var(--border);
+}
+.table-demo tbody tr:last-child { border-bottom: none; }
+.table-demo tbody td {
+  padding: 12px 16px;
+  color: var(--text);
+}
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.badge-active {
+  background: rgba(34,197,94,.12);
+  color: var(--success);
+  border: 1px solid rgba(34,197,94,.2);
+}
+.badge-warning {
+  background: rgba(245,158,11,.12);
+  color: var(--warning);
+  border: 1px solid rgba(245,158,11,.2);
+}
+.badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.mini-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mini-bar {
+  flex: 1;
+  height: 5px;
+  background: var(--surface2);
+  border-radius: 3px;
+  overflow: hidden;
+  max-width: 100px;
+}
+.mini-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 3px;
+}
+.mini-pct { font-size: 0.72rem; color: var(--text-muted); }
+
+/* ── Section 5: Typography ──────────────────────────────── */
+.typo-demo {
+  background: var(--shell-card);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--r);
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.typo-row { display: flex; flex-direction: column; gap: 2px; }
+.typo-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--shell-muted);
+  margin-bottom: 6px;
+}
+.t-h1 {
+  font-family: var(--font-serif);
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.15;
+}
+.t-h2 {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.25;
+}
+.t-h3 {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #e5e5e5;
+}
+.t-body { font-family: var(--font-sans); font-size: 0.9rem; color: #b0b0b0; line-height: 1.7; max-width: 55ch; }
+.t-small { font-family: var(--font-sans); font-size: 0.78rem; color: #666; line-height: 1.6; }
+.t-label { font-family: var(--font-sans); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #888; }
+.t-mono {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: #7c85f5;
+  background: #0d1220;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.typo-divider {
+  border: none;
+  border-top: 1px solid var(--shell-border);
+}
+.typo-scale {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: baseline;
+}
+.typo-scale span { font-family: var(--font-serif); color: #e5e5e5; }
+
+/* ── Mock container scoping ─────────────────────────────── */
+.mock-wrap {
+  background: var(--bg);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--r);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.mock-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* ── Util ───────────────────────────────────────────────── */
+.label-pill {
+  display: inline-block;
+  font-size: 0.67rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.pill-current { background: #2a2a40; color: #7c85f5; }
+.pill-a { background: #0d1220; color: #7c85f5; border: 1px solid #1e2a3a; }
+.pill-b { background: #1c1a18; color: #f59e0b; border: 1px solid #2c2824; }
+
+@media (max-width: 768px) {
+  .section { padding: 32px 20px 0; }
+  .header { padding: 20px; }
+  .toc { padding: 12px 20px; }
+  .kpi-grid { grid-template-columns: 1fr; }
+  .palettes-grid { grid-template-columns: 1fr; }
+  .mock-row { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1>Design Preview</h1>
+  <span>Gestão de Campanhas · Paletas & Componentes</span>
+</header>
+
+<nav class="toc">
+  <a href="#sec-palettes">1. Paletas</a>
+  <a href="#sec-kpi">2. KPI Cards</a>
+  <a href="#sec-sidebar">3. Sidebar</a>
+  <a href="#sec-table">4. Tabela</a>
+  <a href="#sec-typo">5. Tipografia</a>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════
+     SECTION 1 — PALETTES
+════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-palettes">
+  <div class="section-title">1. Paleta Atual vs Propostas</div>
+  <div class="section-sub">Swatches side-by-side com pros/cons de cada proposta</div>
+
+  <div class="palettes-grid">
+
+    <!-- CURRENT -->
+    <div class="pal-card">
+      <div class="pal-card-header">
+        <h3>Atual <span class="label-pill pill-current">em uso</span></h3>
+        <p>Dark puro · Indigo · Neutro agressivo</p>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch-row"><div class="swatch-dot" style="background:#0a0a0a;"></div><div class="swatch-info"><div class="swatch-name">Background</div><div class="swatch-hex">#0a0a0a</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#111111;"></div><div class="swatch-info"><div class="swatch-name">Card</div><div class="swatch-hex">#111111</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#1a1a1a;"></div><div class="swatch-info"><div class="swatch-name">Surface-2</div><div class="swatch-hex">#1a1a1a</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#6366f1;"></div><div class="swatch-info"><div class="swatch-name">Primary (Indigo)</div><div class="swatch-hex">#6366f1</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#22c55e;"></div><div class="swatch-info"><div class="swatch-name">Success</div><div class="swatch-hex">#22c55e</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#ef4444;"></div><div class="swatch-info"><div class="swatch-name">Destructive</div><div class="swatch-hex">#ef4444</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#f59e0b;"></div><div class="swatch-info"><div class="swatch-name">Warning</div><div class="swatch-hex">#f59e0b</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#2a2a2a; border:1px solid #444;"></div><div class="swatch-info"><div class="swatch-name">Border</div><div class="swatch-hex">#2a2a2a</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#555555;"></div><div class="swatch-info"><div class="swatch-name">Text subtle</div><div class="swatch-hex">#555555</div></div></div>
+      </div>
+      <div class="pros-cons">
+        <span class="pro">+ Contraste neutro, fácil de ler</span>
+        <span class="pro">+ Amplamente testado em produção</span>
+        <span class="con">± Fundo #0a0a0a e card #111 têm baixo delta de profundidade</span>
+        <span class="con">± Text-muted #555 pode ser pesado em WCAG AA</span>
+      </div>
+    </div>
+
+    <!-- PROPOSAL A -->
+    <div class="pal-card">
+      <div class="pal-card-header">
+        <h3>Proposta A <span class="label-pill pill-a">Slate/Indigo</span></h3>
+        <p>Azul-ardósia · Indigo refinado · Cyan accent</p>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch-row"><div class="swatch-dot" style="background:#080c14;"></div><div class="swatch-info"><div class="swatch-name">Background</div><div class="swatch-hex">#080c14</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#0d1220;"></div><div class="swatch-info"><div class="swatch-name">Card</div><div class="swatch-hex">#0d1220</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#131926;"></div><div class="swatch-info"><div class="swatch-name">Surface-2</div><div class="swatch-hex">#131926</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#7c85f5;"></div><div class="swatch-info"><div class="swatch-name">Primary (Indigo vivo)</div><div class="swatch-hex">#7c85f5</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#06b6d4;"></div><div class="swatch-info"><div class="swatch-name">Accent (Cyan)</div><div class="swatch-hex">#06b6d4</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#10b981;"></div><div class="swatch-info"><div class="swatch-name">Success</div><div class="swatch-hex">#10b981</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#f43f5e;"></div><div class="swatch-info"><div class="swatch-name">Destructive</div><div class="swatch-hex">#f43f5e</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#fbbf24;"></div><div class="swatch-info"><div class="swatch-name">Warning</div><div class="swatch-hex">#fbbf24</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#1e2a3a; border:1px solid #2e3a4a;"></div><div class="swatch-info"><div class="swatch-name">Border</div><div class="swatch-hex">#1e2a3a</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#4a5568;"></div><div class="swatch-info"><div class="swatch-name">Text subtle</div><div class="swatch-hex">#4a5568</div></div></div>
+      </div>
+      <div class="pros-cons">
+        <span class="pro">+ Mais profundidade entre bg/card/surface</span>
+        <span class="pro">+ Cyan como accent cria hierarquia de destaque</span>
+        <span class="pro">+ Familiar a usuários de Notion, Linear, Plane</span>
+        <span class="con">± Tom azulado pode parecer "tech de startup" demais</span>
+        <span class="con">± Migração exige ajustar todos os tokens de border</span>
+      </div>
+    </div>
+
+    <!-- PROPOSAL B -->
+    <div class="pal-card">
+      <div class="pal-card-header">
+        <h3>Proposta B <span class="label-pill pill-b">Charcoal/Amber</span></h3>
+        <p>Quente · Editorial · Amber como primary</p>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch-row"><div class="swatch-dot" style="background:#0c0b0a;"></div><div class="swatch-info"><div class="swatch-name">Background</div><div class="swatch-hex">#0c0b0a</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#151413;"></div><div class="swatch-info"><div class="swatch-name">Card</div><div class="swatch-hex">#151413</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#1c1a18;"></div><div class="swatch-info"><div class="swatch-name">Surface-2</div><div class="swatch-hex">#1c1a18</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#f59e0b;"></div><div class="swatch-info"><div class="swatch-name">Primary (Amber)</div><div class="swatch-hex">#f59e0b</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#e8532a;"></div><div class="swatch-info"><div class="swatch-name">Accent (Orange)</div><div class="swatch-hex">#e8532a</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#22c55e;"></div><div class="swatch-info"><div class="swatch-name">Success</div><div class="swatch-hex">#22c55e</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#ef4444;"></div><div class="swatch-info"><div class="swatch-name">Destructive</div><div class="swatch-hex">#ef4444</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#fbbf24;"></div><div class="swatch-info"><div class="swatch-name">Warning</div><div class="swatch-hex">#fbbf24</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#2c2824; border:1px solid #3c3430;"></div><div class="swatch-info"><div class="swatch-name">Border</div><div class="swatch-hex">#2c2824</div></div></div>
+        <div class="swatch-row"><div class="swatch-dot" style="background:#6b6460;"></div><div class="swatch-info"><div class="swatch-name">Text subtle</div><div class="swatch-hex">#6b6460</div></div></div>
+      </div>
+      <div class="pros-cons">
+        <span class="pro">+ Personalidade forte, diferenciado no mercado</span>
+        <span class="pro">+ Amber em fundo escuro tem excelente legibilidade</span>
+        <span class="pro">+ Tom quente reduz fadiga em uso prolongado</span>
+        <span class="con">± Amber e Warning (#fbbf24) colidem semanticamente</span>
+        <span class="con">± Menos óbvio para usuários de ferramentas de gestão</span>
+        <span class="con">± Orange accent pode conflitar com Destructive em daltônicos</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     SECTION 2 — KPI CARDS
+════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-kpi">
+  <div class="section-title">2. KPI Cards — Dashboard</div>
+  <div class="section-sub">Clique nas abas para alternar paleta</div>
+
+  <div class="tab-bar" data-group="kpi">
+    <button class="tab-btn active" data-target="kpi-current">Atual</button>
+    <button class="tab-btn" data-target="kpi-a">Proposta A</button>
+    <button class="tab-btn" data-target="kpi-b">Proposta B</button>
+  </div>
+
+  <div id="kpi-current" class="palette-panel active pal-current mock-wrap">
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Projetos Ativos</div>
+        <div class="kpi-value">4</div>
+        <div class="kpi-sub">↑ 1 novo esta semana</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Arrecadado</div>
+        <div class="kpi-value" style="font-size:1.4rem;">R$ 48.200</div>
+        <div class="kpi-sub">↑ R$ 3.400 este mês</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Meta Global</div>
+        <div class="kpi-value">73%</div>
+        <div class="kpi-progress">
+          <div class="progress-bar"><div class="progress-fill" style="width:73%"></div></div>
+          <div class="progress-label"><span>R$ 48.200 / R$ 66.000</span><strong>73%</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="kpi-a" class="palette-panel pal-a mock-wrap">
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Projetos Ativos</div>
+        <div class="kpi-value">4</div>
+        <div class="kpi-sub">↑ 1 novo esta semana</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Arrecadado</div>
+        <div class="kpi-value" style="font-size:1.4rem;">R$ 48.200</div>
+        <div class="kpi-sub">↑ R$ 3.400 este mês</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Meta Global</div>
+        <div class="kpi-value">73%</div>
+        <div class="kpi-progress">
+          <div class="progress-bar"><div class="progress-fill" style="width:73%"></div></div>
+          <div class="progress-label"><span>R$ 48.200 / R$ 66.000</span><strong>73%</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="kpi-b" class="palette-panel pal-b mock-wrap">
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Projetos Ativos</div>
+        <div class="kpi-value">4</div>
+        <div class="kpi-sub">↑ 1 novo esta semana</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Arrecadado</div>
+        <div class="kpi-value" style="font-size:1.4rem;">R$ 48.200</div>
+        <div class="kpi-sub">↑ R$ 3.400 este mês</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Meta Global</div>
+        <div class="kpi-value">73%</div>
+        <div class="kpi-progress">
+          <div class="progress-bar"><div class="progress-fill" style="width:73%"></div></div>
+          <div class="progress-label"><span>R$ 48.200 / R$ 66.000</span><strong>73%</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     SECTION 3 — SIDEBAR
+════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-sidebar">
+  <div class="section-title">3. Sidebar</div>
+  <div class="section-sub">Navegação lateral com item ativo</div>
+
+  <div class="tab-bar" data-group="sidebar">
+    <button class="tab-btn active" data-target="sb-current">Atual</button>
+    <button class="tab-btn" data-target="sb-a">Proposta A</button>
+    <button class="tab-btn" data-target="sb-b">Proposta B</button>
+  </div>
+
+  <div id="sb-current" class="palette-panel active pal-current mock-wrap" style="flex-direction:row; background:var(--bg); padding:0; border:none;">
+    <div class="sidebar-demo">
+      <div class="sidebar-logo">G<span>C</span></div>
+      <div class="sidebar-item active">
+        <svg class="sidebar-icon" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="sidebar-item">
+        <svg class="sidebar-icon" viewBox="0 0 16 16"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+        Projetos
+      </div>
+      <div class="sidebar-item">
+        <svg class="sidebar-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+        Configurações
+      </div>
+    </div>
+  </div>
+
+  <div id="sb-a" class="palette-panel pal-a mock-wrap" style="flex-direction:row; background:var(--bg); padding:0; border:none;">
+    <div class="sidebar-demo">
+      <div class="sidebar-logo">G<span>C</span></div>
+      <div class="sidebar-item active">
+        <svg class="sidebar-icon" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="sidebar-item">
+        <svg class="sidebar-icon" viewBox="0 0 16 16"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+        Projetos
+      </div>
+      <div class="sidebar-item">
+        <svg class="sidebar-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+        Configurações
+      </div>
+    </div>
+  </div>
+
+  <div id="sb-b" class="palette-panel pal-b mock-wrap" style="flex-direction:row; background:var(--bg); padding:0; border:none;">
+    <div class="sidebar-demo">
+      <div class="sidebar-logo">G<span>C</span></div>
+      <div class="sidebar-item active">
+        <svg class="sidebar-icon" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="sidebar-item">
+        <svg class="sidebar-icon" viewBox="0 0 16 16"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+        Projetos
+      </div>
+      <div class="sidebar-item">
+        <svg class="sidebar-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+        Configurações
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     SECTION 4 — TABLE
+════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-table">
+  <div class="section-title">4. Tabela de Projetos</div>
+  <div class="section-sub">Status badge + progress bar em cada paleta</div>
+
+  <div class="tab-bar" data-group="table">
+    <button class="tab-btn active" data-target="tbl-current">Atual</button>
+    <button class="tab-btn" data-target="tbl-a">Proposta A</button>
+    <button class="tab-btn" data-target="tbl-b">Proposta B</button>
+  </div>
+
+  <div id="tbl-current" class="palette-panel active pal-current">
+    <div class="table-demo" style="background:var(--card); border-color:var(--border);">
+      <table>
+        <thead><tr>
+          <th>Projeto</th><th>Status</th><th>Responsável</th><th>Progresso</th><th>Meta</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600; color:var(--text);">Campanha Verão 2025</td>
+            <td><span class="status-badge badge-active"><span class="badge-dot"></span>Ativo</span></td>
+            <td style="color:var(--text-muted);">Ana Costa</td>
+            <td><div class="mini-progress"><div class="mini-bar"><div class="mini-fill" style="width:73%;background:var(--primary);"></div></div><span class="mini-pct">73%</span></div></td>
+            <td style="color:var(--text-muted);">R$ 66.000</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:var(--text);">Projeto Solidário</td>
+            <td><span class="status-badge badge-warning"><span class="badge-dot"></span>Alerta</span></td>
+            <td style="color:var(--text-muted);">Bruno Lima</td>
+            <td><div class="mini-progress"><div class="mini-bar"><div class="mini-fill" style="width:31%;background:var(--warning);"></div></div><span class="mini-pct">31%</span></div></td>
+            <td style="color:var(--text-muted);">R$ 20.000</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:var(--text);">Fundo Educação</td>
+            <td><span class="status-badge badge-active"><span class="badge-dot"></span>Ativo</span></td>
+            <td style="color:var(--text-muted);">Carla Mendes</td>
+            <td><div class="mini-progress"><div class="mini-bar"><div class="mini-fill" style="width:89%;background:var(--success);"></div></div><span class="mini-pct">89%</span></div></td>
+            <td style="color:var(--text-muted);">R$ 15.000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tbl-a" class="palette-panel pal-a">
+    <div class="table-demo" style="background:var(--card); border-color:var(--border);">
+      <table>
+        <thead><tr>
+          <th>Projeto</th><th>Status</th><th>Responsável</th><th>Progresso</th><th>Meta</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600; color:var(--text);">Campanha Verão 2025</td>
+            <td><span class="status-badge badge-active"><span class="badge-dot"></span>Ativo</span></td>
+            <td style="color:var(--text-muted);">Ana Costa</td>
+            <td><div class="mini-progress"><div class="mini-bar"><div class="mini-fill" style="width:73%;background:var(--primary);"></div></div><span class="mini-pct">73%</span></div></td>
+            <td style="color:var(--text-muted);">R$ 66.000</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:var(--text);">Projeto Solidário</td>
+            <td><span class="status-badge badge-warning"><span class="badge-dot"></span>Alerta</span></td>
+            <td style="color:var(--text-muted);">Bruno Lima</td>
+            <td><div class="mini-progress"><div class="mini-bar"><div class="mini-fill" style="width:31%;background:var(--warning);"></div></div><span class="mini-pct">31%</span></div></td>
+            <td style="color:var(--text-muted);">R$ 20.000</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:var(--text);">Fundo Educação</td>
+            <td><span class="status-badge badge-active"><span class="badge-dot"></span>Ativo</span></td>
+            <td style="color:var(--text-muted);">Carla Mendes</td>
+            <td><div class="mini-progress"><div class="mini-bar"><div class="mini-fill" style="width:89%;background:var(--success);"></div></div><span class="mini-pct">89%</span></div></td>
+            <td style="color:var(--text-muted);">R$ 15.000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tbl-b" class="palette-panel pal-b">
+    <div class="table-demo" style="background:var(--card); border-color:var(--border);">
+      <table>
+        <thead><tr>
+          <th>Projeto</th><th>Status</th><th>Responsável</th><th>Progresso</th><th>Meta</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600; color:var(--text);">Campanha Verão 2025</td>
+            <td><span class="status-badge badge-active"><span class="badge-dot"></span>Ativo</span></td>
+            <td style="color:var(--text-muted);">Ana Costa</td>
+            <td><div class="mini-progress"><div class="mini-bar"><div class="mini-fill" style="width:73%;background:var(--primary);"></div></div><span class="mini-pct">73%</span></div></td>
+            <td style="color:var(--text-muted);">R$ 66.000</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:var(--text);">Projeto Solidário</td>
+            <td><span class="status-badge badge-warning"><span class="badge-dot"></span>Alerta</span></td>
+            <td style="color:var(--text-muted);">Bruno Lima</td>
+            <td><div class="mini-progress"><div class="mini-bar"><div class="mini-fill" style="width:31%;background:var(--warning);"></div></div><span class="mini-pct">31%</span></div></td>
+            <td style="color:var(--text-muted);">R$ 20.000</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:var(--text);">Fundo Educação</td>
+            <td><span class="status-badge badge-active"><span class="badge-dot"></span>Ativo</span></td>
+            <td style="color:var(--text-muted);">Carla Mendes</td>
+            <td><div class="mini-progress"><div class="mini-bar"><div class="mini-fill" style="width:89%;background:var(--success);"></div></div><span class="mini-pct">89%</span></div></td>
+            <td style="color:var(--text-muted);">R$ 15.000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     SECTION 5 — TYPOGRAPHY
+════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-typo">
+  <div class="section-title">5. Tipografia</div>
+  <div class="section-sub">IBM Plex Serif (headings) + IBM Plex Sans (body) + IBM Plex Mono (código)</div>
+
+  <div class="typo-demo">
+
+    <div class="typo-row">
+      <div class="typo-label">Heading Scale — IBM Plex Serif</div>
+      <div class="typo-scale">
+        <span style="font-size:2.25rem; font-weight:700;">H1 · 2.25rem</span>
+        <span style="font-size:1.5rem; font-weight:600;">H2 · 1.5rem</span>
+        <span style="font-size:1.15rem; font-weight:600;">H3 · 1.15rem</span>
+        <span style="font-size:0.95rem; font-weight:600;">H4 · 0.95rem</span>
+      </div>
+    </div>
+
+    <hr class="typo-divider">
+
+    <div class="typo-row">
+      <div class="typo-label">Heading com Itálico</div>
+      <div class="t-h1">Gestão de <em style="font-style:italic; color:#7c85f5;">Campanhas</em></div>
+      <div class="t-h2" style="margin-top:8px;">Acompanhe suas metas em tempo real</div>
+    </div>
+
+    <hr class="typo-divider">
+
+    <div class="typo-row">
+      <div class="typo-label">Body — IBM Plex Sans</div>
+      <p class="t-body">Acompanhe o desempenho de cada iniciativa com transparência total. Visualize arrecadações, metas e responsáveis em um painel centralizado e responsivo.</p>
+      <p class="t-small" style="margin-top:8px;">Texto secundário: informações de suporte, descrições e metadados aparecem aqui com opacidade reduzida para não competir com o conteúdo principal.</p>
+    </div>
+
+    <hr class="typo-divider">
+
+    <div class="typo-row">
+      <div class="typo-label">Label & Mono</div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:baseline;">
+        <span class="t-label">Status: Ativo</span>
+        <span class="t-label">Meta: 73%</span>
+        <span class="t-label">Categoria: Social</span>
+        <code class="t-mono">GET /api/v1/projects</code>
+        <code class="t-mono">org_id: "abc123"</code>
+        <code class="t-mono">role: ADMIN</code>
+      </div>
+    </div>
+
+    <hr class="typo-divider">
+
+    <div class="typo-row">
+      <div class="typo-label">Tamanhos de fonte — referência</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:baseline; gap:12px;">
+          <span style="font-family:var(--font-sans); font-size:0.68rem; color:#888; width:60px; flex-shrink:0;">10.88px</span>
+          <span style="font-family:var(--font-sans); font-size:0.68rem; color:#aaa;">Micro / badge / label uppercase</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:12px;">
+          <span style="font-family:var(--font-sans); font-size:0.75rem; color:#888; width:60px; flex-shrink:0;">12px</span>
+          <span style="font-family:var(--font-sans); font-size:0.75rem; color:#aaa;">Small / metadados / timestamps</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:12px;">
+          <span style="font-family:var(--font-sans); font-size:0.875rem; color:#888; width:60px; flex-shrink:0;">14px</span>
+          <span style="font-family:var(--font-sans); font-size:0.875rem; color:#ccc;">Body / navegação / formulários</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:12px;">
+          <span style="font-family:var(--font-sans); font-size:1rem; color:#888; width:60px; flex-shrink:0;">16px</span>
+          <span style="font-family:var(--font-sans); font-size:1rem; color:#e5e5e5;">Body largo / conteúdo editorial</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:12px;">
+          <span style="font-family:var(--font-serif); font-size:1.25rem; color:#888; width:60px; flex-shrink:0;">20px</span>
+          <span style="font-family:var(--font-serif); font-size:1.25rem; color:#fff;">H4 / Subtítulo de seção</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:12px;">
+          <span style="font-family:var(--font-serif); font-size:1.5rem; color:#888; width:60px; flex-shrink:0;">24px</span>
+          <span style="font-family:var(--font-serif); font-size:1.5rem; color:#fff;">H2 / Título de página</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:12px;">
+          <span style="font-family:var(--font-serif); font-size:2.25rem; color:#888; width:60px; flex-shrink:0;">36px</span>
+          <span style="font-family:var(--font-serif); font-size:2.25rem; color:#fff;">H1 / Hero</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+// ponytail: minimal tab switcher, no lib needed
+document.querySelectorAll('.tab-bar').forEach(bar => {
+  bar.addEventListener('click', e => {
+    const btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    bar.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.target;
+    // find sibling panels (same parent container = section)
+    const section = bar.closest('.section');
+    section.querySelectorAll('.palette-panel').forEach(p => {
+      p.classList.toggle('active', p.id === target);
+    });
+  });
+});
+</script>
+</body>
+</html>

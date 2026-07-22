@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN", "MANAGER"]);
+    authorize(payload, "project:write");
     const dto = createProjectSchema.parse(await req.json());
     const project = await projectService.create(payload.organizationId, payload.userId, dto);
     return Response.json(project, { status: 201 });

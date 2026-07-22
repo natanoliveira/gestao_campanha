@@ -1,11 +1,19 @@
 export async function fetchWithAuth(url: string, init?: RequestInit): Promise<Response> {
   const token = localStorage.getItem("access_token") ?? "";
+  const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+  const selectedOrgId = localStorage.getItem("selectedOrgId");
+
+  const extraHeaders: Record<string, string> = {};
+  if (user?.isMaster && selectedOrgId) {
+    extraHeaders["X-Organization-Id"] = selectedOrgId;
+  }
 
   const res = await fetch(url, {
     ...init,
     headers: {
       ...init?.headers,
       Authorization: `Bearer ${token}`,
+      ...extraHeaders,
     },
   });
 

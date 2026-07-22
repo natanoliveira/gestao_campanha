@@ -10,7 +10,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function PUT(req: NextRequest, { params }: Ctx) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN", "MANAGER"]);
+    authorize(payload, "category:write");
     const { id } = await params;
     const dto = updateFinancialCategorySchema.parse(await req.json());
     return Response.json(await financialCategoryService.update(id, payload.organizationId, dto));
@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN"]);
+    authorize(payload, "org:manage");
     const { id } = await params;
     await financialCategoryService.remove(id, payload.organizationId);
     return new Response(null, { status: 204 });

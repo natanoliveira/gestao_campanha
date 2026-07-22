@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN", "MANAGER"]);
+    authorize(payload, "financial:write");
     const { id, initId } = await params;
     const dto = createFinancialExitSchema.parse(await req.json());
     return Response.json(

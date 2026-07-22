@@ -5,6 +5,7 @@ import Link from "next/link";
 import { fetchWithAuth } from "@/lib/fetch-with-auth";
 import { Plus, MessageSquare } from "lucide-react";
 import { KPICard } from "@/components/shared/kpi-card";
+import { AlertsPanel } from "@/components/shared/alerts-panel";
 import { FeedItem } from "@/components/shared/feed-item";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/shared/progress-bar";
@@ -146,6 +147,8 @@ export default function DashboardPage() {
             ))
           )}
         </div>
+
+        <AlertsPanel />
 
         {/* ── Breakdown por categoria ── */}
         {stats && ((stats.entriesByCategory?.length ?? 0) > 0 || (stats.exitsByCategory?.length ?? 0) > 0) && (

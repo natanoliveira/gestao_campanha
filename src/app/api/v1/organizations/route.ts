@@ -8,7 +8,7 @@ import { errorResponse } from "@/lib/errors";
 export async function POST(req: NextRequest) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN"]);
+    authorize(payload, "org:manage");
     const body = await req.json();
     const dto = createOrganizationSchema.parse(body);
     const org = await organizationService.create(dto);

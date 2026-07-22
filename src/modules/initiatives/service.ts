@@ -36,7 +36,12 @@ export const initiativeService = {
       });
       if (!user) throw new AppError("Responsável não encontrado nesta organização", 400, "BAD_REQUEST");
     }
-    const initiative = await initiativeRepository.create({ ...dto, projectId, organizationId });
+    const initiative = await initiativeRepository.create({
+      ...dto,
+      endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+      projectId,
+      organizationId,
+    });
     const raised = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
     const spent  = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
     return { ...initiative, raised, spent };
@@ -57,7 +62,10 @@ export const initiativeService = {
       });
       if (!user) throw new AppError("Responsável não encontrado nesta organização", 400, "BAD_REQUEST");
     }
-    const initiative = await initiativeRepository.update(id, dto);
+    const initiative = await initiativeRepository.update(id, {
+      ...dto,
+      endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+    });
     const raised = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
     const spent  = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
     return { ...initiative, raised, spent };

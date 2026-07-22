@@ -5,7 +5,7 @@ const baseSelect = {
   id: true, projectId: true, organizationId: true,
   name: true, description: true,
   goal: true, minGoal: true,
-  priority: true, status: true,
+  priority: true, status: true, endDate: true,
   responsibleId: true, dependsOnId: true,
   createdAt: true, deletedAt: true,
 };

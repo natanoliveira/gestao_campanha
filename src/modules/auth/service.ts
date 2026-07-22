@@ -15,13 +15,13 @@ export const authService = {
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new AppError("Credenciais inválidas", 401, "UNAUTHORIZED");
 
-    const payload = { userId: user.id, organizationId: user.organizationId, role: user.role };
+    const payload = { userId: user.id, organizationId: user.organizationId, role: user.role, isMaster: user.isMaster ?? false };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
 
     await redis.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, "EX", 60 * 60 * 24 * 7);
 
-    return { accessToken, refreshToken, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+    return { accessToken, refreshToken, user: { id: user.id, name: user.name, email: user.email, role: user.role, isMaster: user.isMaster ?? false } };
   },
 
   async refresh(token: string) {
@@ -38,7 +38,7 @@ export const authService = {
     const user = await authRepository.findById(payload.userId);
     if (!user) throw new AppError("Usuário não encontrado", 401, "UNAUTHORIZED");
 
-    const newPayload = { userId: user.id, organizationId: user.organizationId, role: user.role };
+    const newPayload = { userId: user.id, organizationId: user.organizationId, role: user.role, isMaster: user.isMaster ?? false };
     const accessToken = signAccessToken(newPayload);
     const refreshToken = signRefreshToken(newPayload);
 

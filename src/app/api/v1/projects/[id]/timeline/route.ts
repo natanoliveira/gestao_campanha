@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const payload = authenticate(req);
-    authorize(payload, ["ADMIN", "MANAGER"]);
+    authorize(payload, "timeline:write");
     const { id } = await params;
     const dto = createTimelinePostSchema.parse(await req.json());
     const post = await timelineService.create(id, payload.organizationId, payload.userId, dto);

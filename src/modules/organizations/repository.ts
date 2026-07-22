@@ -1,7 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import type { CreateOrganizationDTO, UpdateOrganizationDTO } from "./dto";
 
-const select = { id: true, name: true, slug: true, logo: true, active: true, createdAt: true };
+const select = {
+  id: true,
+  name: true,
+  slug: true,
+  logo: true,
+  active: true,
+  createdAt: true,
+  plan: { select: { id: true, name: true, priceMonthly: true } },
+};
 
 export const organizationRepository = {
   findById(id: string) {
