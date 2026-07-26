@@ -11,6 +11,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params
     const { name, slug, planId, active } = await req.json()
 
+    const exists = await prisma.organization.findUnique({ where: { id }, select: { id: true } })
+    if (!exists) throw new AppError("Organização não encontrada", 404, "NOT_FOUND")
+
     if (slug) {
       const conflict = await prisma.organization.findFirst({
         where: { slug, deletedAt: null, id: { not: id } },

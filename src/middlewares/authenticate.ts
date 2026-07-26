@@ -9,10 +9,12 @@ export function authenticate(req: NextRequest): JwtPayload {
   }
   try {
     const payload = verifyAccessToken(auth.replace("Bearer ", ""));
-    // master pode visualizar qualquer org via header
     if (payload.isMaster) {
       const orgOverride = req.headers.get("x-organization-id");
-      if (orgOverride) payload.organizationId = orgOverride;
+      if (orgOverride) {
+        console.warn(`[AUDIT] master ${payload.userId} acessando org ${orgOverride}`);
+        payload.organizationId = orgOverride;
+      }
     }
     return payload;
   } catch {
