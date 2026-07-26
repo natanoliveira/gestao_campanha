@@ -47,7 +47,7 @@ export const initiativeRepository = {
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   },
 
-  create(data: CreateInitiativeDTO & { projectId: string; organizationId: string }) {
+  create(data: Omit<CreateInitiativeDTO, "endDate"> & { projectId: string; organizationId: string; endDate?: Date }) {
     return prisma.initiative.create({
       data,
       select: {
@@ -58,7 +58,7 @@ export const initiativeRepository = {
     });
   },
 
-  update(id: string, data: UpdateInitiativeDTO) {
+  update(id: string, data: Omit<UpdateInitiativeDTO, "endDate"> & { endDate?: Date }) {
     return prisma.initiative.update({
       where: { id },
       data,

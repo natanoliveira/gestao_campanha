@@ -1,5 +1,5 @@
+"use client";
 import { can } from "@/lib/permissions";
-"use client"
 
 import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
@@ -55,9 +55,9 @@ const STATUSES: InitStatus[] = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLE
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function currentRole(): string | null {
-  try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? null }
-  catch { return null }
+function currentRole(): string {
+  try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? "" }
+  catch { return "" }
 }
 
 const fmt = (n: number | string) =>

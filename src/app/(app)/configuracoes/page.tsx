@@ -1,5 +1,5 @@
+"use client";
 import { can } from "@/lib/permissions";
-"use client"
 
 import { useEffect, useState, useCallback } from "react"
 import { fetchWithAuth } from "@/lib/fetch-with-auth"

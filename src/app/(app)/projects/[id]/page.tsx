@@ -1,5 +1,5 @@
-import { can } from "@/lib/permissions";
 "use client";
+import { can } from "@/lib/permissions";
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";

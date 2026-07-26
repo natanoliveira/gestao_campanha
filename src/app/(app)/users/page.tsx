@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Badge, type BadgeVariant } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
+import { can } from "@/lib/permissions"
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -39,11 +40,11 @@ const ROLES: Role[] = ["ADMIN", "MANAGER", "TREASURER", "COMMUNICATION", "AUDITO
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function currentRole(): Role | null {
+function currentRole(): string {
   try {
-    return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? null
+    return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? ""
   } catch {
-    return null
+    return ""
   }
 }
 
