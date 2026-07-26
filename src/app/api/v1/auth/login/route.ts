@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const dto = loginSchema.parse(body);
-    const result = await authService.login(dto);
+    const result = await authService.login(dto, ip);
 
     const response = Response.json({ user: result.user, accessToken: result.accessToken });
     response.headers.set(

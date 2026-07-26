@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Building2,
   CreditCard,
+  ShieldCheck,
 } from "lucide-react"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -36,8 +37,9 @@ const NAV = [
     section: "Sistema",
     isMasterOnly: true,
     items: [
-      { href: "/master/organizacoes", label: "Organizações", Icon: Building2 },
-      { href: "/master/planos",       label: "Planos",       Icon: CreditCard },
+      { href: "/master/organizacoes", label: "Organizações", Icon: Building2   },
+      { href: "/master/planos",       label: "Planos",       Icon: CreditCard  },
+      { href: "/master/auditoria",    label: "Auditoria",    Icon: ShieldCheck },
     ],
   },
 ]

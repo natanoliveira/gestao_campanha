@@ -5,6 +5,7 @@ import { authorize } from "@/middlewares/authorize";
 import { userService } from "@/modules/users/service";
 import { createUserSchema, listUsersSchema } from "@/modules/users/dto";
 import { errorResponse } from "@/lib/errors";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,7 +30,9 @@ export async function POST(req: NextRequest) {
     authorize(payload, "org:manage");
     const body = await req.json();
     const dto = createUserSchema.parse(body);
+    const ip = req.headers.get("x-forwarded-for");
     const user = await userService.create(payload.organizationId, dto);
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "user", entityId: user.id, ip });
     return Response.json(user, { status: 201 });
   } catch (error) {
     return errorResponse(error);

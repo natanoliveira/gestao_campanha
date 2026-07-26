@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     if (!auth) throw new AppError("Token ausente", 401, "UNAUTHORIZED");
 
     const payload = verifyAccessToken(auth);
-    await authService.logout(payload.userId);
+    await authService.logout(payload.userId, payload.organizationId);
 
     const response = Response.json({ message: "Logout realizado" });
     response.headers.set("Set-Cookie", "refresh_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");

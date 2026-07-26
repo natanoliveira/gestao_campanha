@@ -1,14 +1,17 @@
 import bcrypt from "bcryptjs";
 import { redis } from "@/lib/redis";
+import { prisma } from "@/lib/prisma";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "@/lib/jwt";
 import { AppError } from "@/lib/errors";
+import { logAudit } from "@/lib/audit";
 import { authRepository } from "./repository";
 import type { LoginDTO } from "./dto";
 
 const REFRESH_PREFIX = "refresh:";
+const SESSION_TTL = 60 * 60 * 24 * 7;
 
 export const authService = {
-  async login(dto: LoginDTO) {
+  async login(dto: LoginDTO, ip?: string) {
     const user = await authRepository.findByEmail(dto.email);
     if (!user) throw new AppError("Credenciais inválidas", 401, "UNAUTHORIZED");
 
@@ -19,7 +22,17 @@ export const authService = {
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
 
-    await redis.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, "EX", 60 * 60 * 24 * 7);
+    const expiresAt = new Date(Date.now() + SESSION_TTL * 1000);
+
+    await Promise.all([
+      redis.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, "EX", SESSION_TTL),
+      prisma.session.upsert({
+        where: { token: refreshToken },
+        create: { userId: user.id, token: refreshToken, expiresAt },
+        update: { expiresAt },
+      }),
+      logAudit({ organizationId: user.organizationId, userId: user.id, action: "login", entity: "session", entityId: user.id, ip }),
+    ]);
 
     return { accessToken, refreshToken, user: { id: user.id, name: user.name, email: user.email, role: user.role, isMaster: user.isMaster ?? false } };
   },
@@ -42,12 +55,22 @@ export const authService = {
     const accessToken = signAccessToken(newPayload);
     const refreshToken = signRefreshToken(newPayload);
 
-    await redis.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, "EX", 60 * 60 * 24 * 7);
+    const expiresAt = new Date(Date.now() + SESSION_TTL * 1000);
+
+    await Promise.all([
+      redis.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, "EX", SESSION_TTL),
+      prisma.session.deleteMany({ where: { userId: user.id } }),
+      prisma.session.create({ data: { userId: user.id, token: refreshToken, expiresAt } }),
+    ]);
 
     return { accessToken, refreshToken };
   },
 
-  async logout(userId: string) {
-    await redis.del(`${REFRESH_PREFIX}${userId}`);
+  async logout(userId: string, organizationId: string) {
+    await Promise.all([
+      redis.del(`${REFRESH_PREFIX}${userId}`),
+      prisma.session.deleteMany({ where: { userId } }),
+      logAudit({ organizationId, userId, action: "logout", entity: "session", entityId: userId }),
+    ]);
   },
 };

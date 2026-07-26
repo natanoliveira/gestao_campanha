@@ -5,6 +5,7 @@ import { authorize } from "@/middlewares/authorize";
 import { initiativeService } from "@/modules/initiatives/service";
 import { createInitiativeSchema, listInitiativesSchema } from "@/modules/initiatives/dto";
 import { errorResponse } from "@/lib/errors";
+import { logAudit } from "@/lib/audit";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -26,7 +27,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     authorize(payload, "initiative:write");
     const { id } = await params;
     const dto = createInitiativeSchema.parse(await req.json());
+    const ip = req.headers.get("x-forwarded-for");
     const init = await initiativeService.create(id, payload.organizationId, dto);
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "initiative", entityId: init.id, ip });
     return Response.json(init, { status: 201 });
   } catch (e) { return errorResponse(e); }
 }
