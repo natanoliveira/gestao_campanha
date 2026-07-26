@@ -1,31 +1,61 @@
-// ponytail: memoryCache para dev local; trocar por Upstash quando REDIS_URL estiver configurada em prod
+import { Redis } from "@upstash/redis";
 
-const memoryCache = new Map<string, { value: string; expiresAt: number }>();
+// ── memory fallback for local dev (no env vars needed) ──────────────────────
+const mem = new Map<string, { v: string; exp: number }>();
 
-function memGet(key: string): Promise<string | null> {
-  const entry = memoryCache.get(key);
-  if (!entry) return Promise.resolve(null);
-  if (Date.now() > entry.expiresAt) { memoryCache.delete(key); return Promise.resolve(null); }
-  return Promise.resolve(entry.value);
+const memRedis = {
+  get: (key: string): Promise<string | null> => {
+    const e = mem.get(key);
+    if (!e) return Promise.resolve(null);
+    if (Date.now() > e.exp) { mem.delete(key); return Promise.resolve(null); }
+    return Promise.resolve(e.v);
+  },
+  set: (key: string, value: string, _ex: "EX", ttl: number): Promise<void> => {
+    mem.set(key, { v: value, exp: Date.now() + ttl * 1000 });
+    return Promise.resolve();
+  },
+  del: (key: string): Promise<void> => { mem.delete(key); return Promise.resolve(); },
+  incr: async (key: string): Promise<number> => {
+    const e = mem.get(key);
+    const count = e && Date.now() <= e.exp ? parseInt(e.v) + 1 : 1;
+    mem.set(key, { v: String(count), exp: e?.exp ?? Date.now() + 60_000 });
+    return count;
+  },
+  expire: (key: string, ttl: number): Promise<void> => {
+    const e = mem.get(key);
+    if (e) mem.set(key, { v: e.v, exp: Date.now() + ttl * 1000 });
+    return Promise.resolve();
+  },
+};
+
+// ── Upstash (HTTP — works in serverless) ────────────────────────────────────
+function createUpstash() {
+  const client = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  });
+  return {
+    get: (key: string) => client.get<string>(key),
+    set: (key: string, value: string, _ex: "EX", ttl: number) =>
+      client.set(key, value, { ex: ttl }).then(() => {}),
+    del: (key: string) => client.del(key).then(() => {}),
+    incr: (key: string) => client.incr(key),
+    expire: (key: string, ttl: number) => client.expire(key, ttl),
+  };
 }
 
-function memSet(key: string, value: string, _ex: "EX", ttl: number): Promise<void> {
-  memoryCache.set(key, { value, expiresAt: Date.now() + ttl * 1000 });
-  return Promise.resolve();
-}
+export const redis =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? createUpstash()
+    : memRedis;
 
-function memDel(key: string): Promise<void> {
-  memoryCache.delete(key);
-  return Promise.resolve();
-}
-
-export const redis = { get: memGet, set: memSet, del: memDel };
-
-// ponytail: sliding window simples; upgrade para Lua script atômico se precisar exatidão sob concorrência
-export async function rateLimit(key: string, limit: number, windowSec: number): Promise<{ ok: boolean; remaining: number }> {
-  const raw = await redis.get(key);
-  const count = raw ? parseInt(raw) + 1 : 1;
-  if (count === 1) await redis.set(key, "1", "EX", windowSec);
-  else await redis.set(key, String(count), "EX", windowSec);
+// ── rate limit — atomic INCR + EXPIRE ───────────────────────────────────────
+export async function rateLimit(
+  key: string,
+  limit: number,
+  windowSec: number
+): Promise<{ ok: boolean; remaining: number }> {
+  const count = await redis.incr(key);
+  if (count === 1) await redis.expire(key, windowSec);
   return { ok: count <= limit, remaining: Math.max(0, limit - count) };
 }

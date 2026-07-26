@@ -62,11 +62,11 @@ function ActionIcon({ action }: { action: string }) {
   return <Tag className={cn(cls, "text-text-subtle")} />
 }
 
-function actionBadgeVariant(action: string): "active" | "danger" | "warning" | "neutral" {
+function actionBadgeVariant(action: string): "active" | "danger" | "warning" | "draft" {
   if (action === "login")  return "active"
   if (action === "delete") return "danger"
   if (action === "update") return "warning"
-  return "neutral"
+  return "draft"
 }
 
 function formatDate(iso: string) {
