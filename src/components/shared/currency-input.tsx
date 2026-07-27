@@ -19,12 +19,13 @@ function toCents(raw: string): number {
 type Props = {
   value: string;          // numeric string, e.g. "1234.56"
   onChange: (v: string) => void; // emits numeric string
+  id?: string;
   className?: string;
   placeholder?: string;
   required?: boolean;
 };
 
-export function CurrencyInput({ value, onChange, className, placeholder = "R$ 0,00", required }: Props) {
+export function CurrencyInput({ value, onChange, id, className, placeholder = "R$ 0,00", required }: Props) {
   const ref = useRef<HTMLInputElement>(null);
 
   const displayValue = value
@@ -47,6 +48,7 @@ export function CurrencyInput({ value, onChange, className, placeholder = "R$ 0,
   return (
     <input
       ref={ref}
+      id={id}
       type="text"
       inputMode="numeric"
       className={cn(inputCls, className)}

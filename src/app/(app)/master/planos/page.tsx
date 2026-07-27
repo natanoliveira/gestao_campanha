@@ -6,6 +6,7 @@ import { Dialog } from "@base-ui/react/dialog"
 import { fetchWithAuth } from "@/lib/fetch-with-auth"
 import { Spinner } from "@/components/ui/spinner"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { CurrencyInput } from "@/components/shared/currency-input"
 import { cn } from "@/lib/utils"
 
 type Plan = {
@@ -245,13 +246,10 @@ export default function PlanosPage() {
               </div>
               <div>
                 <FieldLabel>Preço mensal (R$)</FieldLabel>
-                <input
+                <CurrencyInput
                   required
-                  type="number"
-                  step="0.01"
-                  min="0"
                   value={form.priceMonthly}
-                  onChange={(e) => setForm((f) => ({ ...f, priceMonthly: e.target.value }))}
+                  onChange={(v) => setForm((f) => ({ ...f, priceMonthly: v }))}
                   className={inputCls}
                 />
               </div>

@@ -6,7 +6,8 @@ import { useParams } from "next/navigation";
 import { fetchWithAuth } from "@/lib/fetch-with-auth";
 import Link from "next/link";
 import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2, Pencil, Image as ImageIcon, Video, FileText } from "lucide-react";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { CurrencyInput } from "@/components/shared/currency-input";
 import { Dialog } from "@base-ui/react/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
@@ -497,6 +498,7 @@ function TimelineTab({ projectId, posts, onMutate }: {
       setUploading(true);
       const form = new FormData();
       form.append("file", file);
+      form.append("projectId", projectId);
       const res = await fetchWithAuth("/api/v1/upload", { method: "POST", body: form });
       setUploading(false);
       if (!res.ok) return;
@@ -807,11 +809,11 @@ function InitiativasTab({ projectId, initiatives, onMutate }: {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="init-goal" className="block text-[12px] text-muted-foreground mb-1">Meta (R$) *</label>
-                  <input id="init-goal" required type="number" min="0" step="0.01" value={form.goal} onChange={set("goal")} className={inputCls} />
+                  <CurrencyInput id="init-goal" required value={form.goal} onChange={(v) => setForm(f => ({ ...f, goal: v }))} className={inputCls} />
                 </div>
                 <div>
                   <label htmlFor="init-mingoal" className="block text-[12px] text-muted-foreground mb-1">Meta Mínima (R$)</label>
-                  <input id="init-mingoal" type="number" min="0" step="0.01" value={form.minGoal} onChange={set("minGoal")} className={inputCls} />
+                  <CurrencyInput id="init-mingoal" value={form.minGoal} onChange={(v) => setForm(f => ({ ...f, minGoal: v }))} className={inputCls} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -973,7 +975,7 @@ function ContasTab({ projectId, entries, exits, totalIn, totalOut, initiatives, 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="lanc-amount" className="block text-[12px] text-muted-foreground mb-1">Valor (R$) *</label>
-                  <input id="lanc-amount" required type="number" min="0" step="0.01" value={form.amount} onChange={set("amount")} className={inputCls} />
+                  <CurrencyInput id="lanc-amount" required value={form.amount} onChange={(v) => setForm(f => ({ ...f, amount: v }))} className={inputCls} />
                 </div>
                 <div>
                   <label htmlFor="lanc-date" className="block text-[12px] text-muted-foreground mb-1">Data *</label>
