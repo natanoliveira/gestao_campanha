@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticate } from "@/middlewares/authenticate";
-import { uploadFile } from "@/lib/s3";
+import { uploadFile } from "@/lib/r2";
 import { errorResponse } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";

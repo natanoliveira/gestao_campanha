@@ -147,7 +147,4 @@ Executar `/simplify` antes de apresentar código ao usuário.
 ## Pendências
 
 - Instalar Vitest: `npm install -D vitest` (config já existe em `vitest.config.ts`)
-- Stripe: substituir chaves placeholder no `.env` (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PREMIUM`)
-- Painel de decisão / alertas avançados (brainstorming adiado)
-- Upload S3/R2 — lib pronta (`uploadFile`, `deleteFile`, `getPresignedUrl`), falta UI
-- Configurar envs no Vercel dashboard após deploy
+- R2 public access: habilitar "Public Access" no bucket no painel Cloudflare e atualizar `S3_PUBLIC_URL` no `.env` e Vercel com a URL `r2.dev` (necessário para imagens da timeline renderizarem no browser)
