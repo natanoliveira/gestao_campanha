@@ -20,6 +20,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { fetchWithAuth } from "@/lib/fetch-with-auth"
+import { toast } from "sonner"
 
 const NAV = [
   {
@@ -220,7 +221,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
-        {NAV.filter((s) => !s.isMasterOnly || isMaster).map(({ section, items }) => (
+        {NAV.filter((s) => !s.isMasterOnly || isMaster).map(({ section, isMasterOnly, items }) => (
           <div key={section}>
             <p className="text-[10px] font-medium uppercase tracking-[.08em] text-text-subtle px-2.5 mb-1.5">
               {section}
@@ -228,17 +229,27 @@ export function Sidebar() {
             <div className="space-y-0.5">
               {items.filter(({ permission }) => !permission || can(user?.role ?? "", permission)).map(({ href, label, Icon }) => {
                 const active = pathname === href || pathname.startsWith(href + "/")
+                const blocked = isMaster && !isMasterOnly && !selectedOrgId
+                const itemCls = cn(
+                  "flex items-center gap-2.5 px-2.5 py-[7px] rounded-md text-[13px] transition-colors duration-150 cursor-pointer",
+                  active
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+                )
+                if (blocked) {
+                  return (
+                    <button
+                      key={href}
+                      onClick={() => toast.warning("Selecione uma organização para continuar")}
+                      className={itemCls}
+                    >
+                      <Icon className="size-[15px] shrink-0" />
+                      {label}
+                    </button>
+                  )
+                }
                 return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={cn(
-                      "flex items-center gap-2.5 px-2.5 py-[7px] rounded-md text-[13px] transition-colors duration-150 cursor-pointer",
-                      active
-                        ? "bg-accent text-accent-foreground font-medium"
-                        : "text-muted-foreground hover:bg-surface-2 hover:text-foreground",
-                    )}
-                  >
+                  <Link key={href} href={href} className={itemCls}>
                     <Icon className="size-[15px] shrink-0" />
                     {label}
                   </Link>
