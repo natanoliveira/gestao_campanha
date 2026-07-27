@@ -144,6 +144,13 @@ Executar `/simplify` antes de apresentar código ao usuário.
 - `JWT_SECRET` e `JWT_REFRESH_SECRET` gerados e gravados no `.env` (48 bytes, base64)
 - Ao subir para Vercel: copiar os mesmos valores do `.env` para o dashboard (ou gerar novos — usuários dev perderão sessão)
 
+## Master — Visibilidade por Org
+
+**Implementado:** header `X-Organization-Id` enviado pelo `fetchWithAuth` quando `isMaster && selectedOrgId`. O middleware `authenticate` sobrescreve `organizationId` do JWT com o valor do header, dando ao master visão dos dados daquela org sem re-autenticar.
+
+**Alternativa registrada — Token de impersonação:**
+Ao selecionar a org, chamar `POST /api/v1/master/impersonate { orgId }` que retorna um JWT temporário com o `organizationId` da org. `fetchWithAuth` usaria esse token em vez do master token. Vantagens: token auto-contido, sem header extra por requisição. Desvantagens: round-trip ao banco a cada troca de org, gerenciamento de expiração/revogação de tokens extras, maior superfície de ataque. Preferir o header enquanto a escala não exigir isolamento por token.
+
 ## Pendências
 
 - Instalar Vitest: `npm install -D vitest` (config já existe em `vitest.config.ts`)

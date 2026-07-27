@@ -123,6 +123,7 @@ export function Sidebar() {
     setSelectedOrgName(org.name)
     setOrgDropdownOpen(false)
     window.dispatchEvent(new Event("orgChanged"))
+    window.location.reload()
   }
 
   async function logout() {
