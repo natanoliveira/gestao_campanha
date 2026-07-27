@@ -24,15 +24,18 @@ export const authService = {
 
     const expiresAt = new Date(Date.now() + SESSION_TTL * 1000);
 
-    await Promise.all([
+    const ops: Promise<unknown>[] = [
       redis.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, "EX", SESSION_TTL),
       prisma.session.upsert({
         where: { token: refreshToken },
         create: { userId: user.id, token: refreshToken, expiresAt },
         update: { expiresAt },
       }),
-      logAudit({ organizationId: user.organizationId, userId: user.id, action: "login", entity: "session", entityId: user.id, ip }),
-    ]);
+    ];
+    if (user.organizationId) {
+      ops.push(logAudit({ organizationId: user.organizationId, userId: user.id, action: "login", entity: "session", entityId: user.id, ip }));
+    }
+    await Promise.all(ops);
 
     return { accessToken, refreshToken, user: { id: user.id, name: user.name, email: user.email, role: user.role, isMaster: user.isMaster ?? false } };
   },
@@ -66,11 +69,14 @@ export const authService = {
     return { accessToken, refreshToken };
   },
 
-  async logout(userId: string, organizationId: string) {
-    await Promise.all([
+  async logout(userId: string, organizationId: string | null) {
+    const ops: Promise<unknown>[] = [
       redis.del(`${REFRESH_PREFIX}${userId}`),
       prisma.session.deleteMany({ where: { userId } }),
-      logAudit({ organizationId, userId, action: "logout", entity: "session", entityId: userId }),
-    ]);
+    ];
+    if (organizationId) {
+      ops.push(logAudit({ organizationId, userId, action: "logout", entity: "session", entityId: userId }));
+    }
+    await Promise.all(ops);
   },
 };
