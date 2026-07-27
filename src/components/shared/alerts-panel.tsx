@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { fetchWithAuth } from "@/lib/fetch-with-auth";
+import { can } from "@/lib/permissions";
+import { DecisaoDialog } from "@/components/shared/decisao-dialog";
 import { cn } from "@/lib/utils";
 
-type Alert = {
+export type Alert = {
   id: string;
   name: string;
   endDate: string;
@@ -27,14 +29,26 @@ function daysBadge(daysLeft: number) {
   return { cls: "text-text-subtle bg-border/40", label: `${daysLeft} dias` };
 }
 
+function currentRole(): string {
+  try { return JSON.parse(localStorage.getItem("user") ?? "{}").role ?? ""; }
+  catch { return ""; }
+}
+
+function load(setAlerts: (a: Alert[]) => void) {
+  fetchWithAuth("/api/v1/dashboard/alerts")
+    .then((r) => r.json())
+    .then(setAlerts)
+    .catch(() => setAlerts([]));
+}
+
 export function AlertsPanel() {
-  const [alerts, setAlerts] = useState<Alert[] | null>(null);
+  const [alerts, setAlerts]     = useState<Alert[] | null>(null);
+  const [role, setRole]         = useState("");
+  const [decidindo, setDecidindo] = useState<Alert | null>(null);
 
   useEffect(() => {
-    fetchWithAuth("/api/v1/dashboard/alerts")
-      .then((r) => r.json())
-      .then(setAlerts)
-      .catch(() => setAlerts([]));
+    setRole(currentRole());
+    load(setAlerts);
   }, []);
 
   if (alerts === null) {
@@ -55,14 +69,19 @@ export function AlertsPanel() {
 
   if (alerts.length === 0) return null;
 
+  const canDecide = can(role, "initiative:write");
+
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
         <AlertTriangle className="size-4 text-warning" />
         <span className="text-[14px] font-medium">Alertas de Prazo</span>
-        <span className="ml-auto text-[11px] font-medium bg-warning/15 text-warning px-2 py-0.5 rounded-full">
+        <span className="ml-2 text-[11px] font-medium bg-warning/15 text-warning px-2 py-0.5 rounded-full">
           {alerts.length}
         </span>
+        <Link href="/decisoes" className="ml-auto text-[11px] text-primary hover:underline">
+          Ver todas →
+        </Link>
       </div>
       <ul className="divide-y divide-border">
         {alerts.map((a) => {
@@ -76,10 +95,27 @@ export function AlertsPanel() {
               <span className={cn("ml-4 shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full", cls)}>
                 {label}
               </span>
+              {canDecide && (
+                <button
+                  onClick={(e) => { e.preventDefault(); setDecidindo(a); }}
+                  className="ml-2 shrink-0 text-[11px] font-medium px-2.5 py-0.5 rounded-md bg-primary text-white hover:bg-primary/90 transition-colors"
+                >
+                  Decidir
+                </button>
+              )}
             </li>
           );
         })}
       </ul>
+
+      {decidindo && (
+        <DecisaoDialog
+          initiative={decidindo}
+          open={!!decidindo}
+          onOpenChange={(v) => { if (!v) setDecidindo(null); }}
+          onSuccess={() => { setDecidindo(null); load(setAlerts); }}
+        />
+      )}
     </div>
   );
 }

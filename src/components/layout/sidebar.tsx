@@ -13,7 +13,9 @@ import {
   Building2,
   CreditCard,
   ShieldCheck,
+  Scale,
 } from "lucide-react"
+import { can } from "@/lib/permissions"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -23,23 +25,24 @@ const NAV = [
   {
     section: "Principal",
     items: [
-      { href: "/dashboard", label: "Dashboard",  Icon: LayoutGrid    },
-      { href: "/projects",  label: "Projetos",   Icon: FolderKanban  },
+      { href: "/dashboard", label: "Dashboard",  Icon: LayoutGrid,   permission: "" },
+      { href: "/projects",  label: "Projetos",   Icon: FolderKanban, permission: "" },
+      { href: "/decisoes",  label: "Decisões",   Icon: Scale,        permission: "initiative:write" },
     ],
   },
   {
     section: "Organização",
     items: [
-      { href: "/configuracoes", label: "Configurações", Icon: Settings },
+      { href: "/configuracoes", label: "Configurações", Icon: Settings,    permission: "" },
     ],
   },
   {
     section: "Sistema",
     isMasterOnly: true,
     items: [
-      { href: "/master/organizacoes", label: "Organizações", Icon: Building2   },
-      { href: "/master/planos",       label: "Planos",       Icon: CreditCard  },
-      { href: "/master/auditoria",    label: "Auditoria",    Icon: ShieldCheck },
+      { href: "/master/organizacoes", label: "Organizações", Icon: Building2,   permission: "" },
+      { href: "/master/planos",       label: "Planos",       Icon: CreditCard,  permission: "" },
+      { href: "/master/auditoria",    label: "Auditoria",    Icon: ShieldCheck, permission: "" },
     ],
   },
 ]
@@ -223,7 +226,7 @@ export function Sidebar() {
               {section}
             </p>
             <div className="space-y-0.5">
-              {items.map(({ href, label, Icon }) => {
+              {items.filter(({ permission }) => !permission || can(user?.role ?? "", permission)).map(({ href, label, Icon }) => {
                 const active = pathname === href || pathname.startsWith(href + "/")
                 return (
                   <Link
