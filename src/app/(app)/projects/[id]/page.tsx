@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { fetchWithAuth } from "@/lib/fetch-with-auth";
 import Link from "next/link";
-import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2, Pencil } from "lucide-react";
+import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2, Pencil, Image as ImageIcon, Video, FileText } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Dialog } from "@base-ui/react/dialog";
 import { Spinner } from "@/components/ui/spinner";
@@ -25,7 +25,7 @@ type Initiative = {
   endDate?: string;
 };
 type TimelinePost = {
-  id: string; content: string; type: string; publishedAt: string;
+  id: string; content: string; type: string; mediaUrl?: string | null; publishedAt: string;
   author: { name: string };
 };
 type FinancialRow = {
@@ -419,26 +419,98 @@ export default function ProjectDetailPage() {
 }
 
 /* ── TimelineTab ── */
+const POST_TYPES = [
+  { value: "TEXT",  label: "Texto"  },
+  { value: "PHOTO", label: "Foto"   },
+  { value: "VIDEO", label: "Vídeo"  },
+  { value: "PDF",   label: "PDF"    },
+  { value: "LINK",  label: "Link"   },
+] as const;
+type PostType = typeof POST_TYPES[number]["value"];
+
+function PostTypeIcon({ type }: { type: string }) {
+  switch (type) {
+    case "PHOTO": return <ImageIcon className="size-3.5 text-primary" aria-hidden />;
+    case "VIDEO": return <Video     className="size-3.5 text-primary" aria-hidden />;
+    case "PDF":   return <FileText  className="size-3.5 text-primary" aria-hidden />;
+    case "LINK":  return <ExternalLink className="size-3.5 text-primary" aria-hidden />;
+    default:      return <MessageSquare className="size-3.5 text-primary" aria-hidden />;
+  }
+}
+
+function PostMedia({ post }: { post: TimelinePost }) {
+  if (!post.mediaUrl) return null;
+  switch (post.type) {
+    case "PHOTO":
+      return <img src={post.mediaUrl} alt={post.content} className="mt-2 max-h-64 rounded-lg object-cover" />;
+    case "VIDEO":
+      return <video src={post.mediaUrl} controls className="mt-2 max-h-64 w-full rounded-lg" />;
+    case "PDF":
+      return (
+        <a href={post.mediaUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-primary hover:underline">
+          <FileText className="size-3.5" />Ver PDF
+        </a>
+      );
+    case "LINK":
+      return (
+        <a href={post.mediaUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-primary hover:underline break-all">
+          <ExternalLink className="size-3.5" />{post.mediaUrl}
+        </a>
+      );
+    default: return null;
+  }
+}
+
 function TimelineTab({ projectId, posts, onMutate }: {
   projectId: string;
   posts: TimelinePost[];
   onMutate: () => void;
 }) {
-  const [content, setContent] = useState("");
-  const [saving, setSaving]   = useState(false);
-  const role = currentRole();
+  const [type, setType]         = useState<PostType>("TEXT");
+  const [content, setContent]   = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [file, setFile]         = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const role    = currentRole();
   const canPost = can(role, "timeline:write");
+
+  const needsFile = type === "PHOTO" || type === "VIDEO" || type === "PDF";
+  const needsLink = type === "LINK";
+  const canSubmit = !!content.trim() && (
+    type === "TEXT" ||
+    (needsFile && !!file) ||
+    (needsLink && !!mediaUrl.trim())
+  );
+
+  function changeType(v: PostType) {
+    setType(v);
+    setFile(null);
+    setMediaUrl("");
+  }
 
   async function submit(e: React.SyntheticEvent) {
     e.preventDefault();
-    if (!content.trim()) return;
+    if (!canSubmit) return;
+    let url: string | undefined;
+    if (needsFile && file) {
+      setUploading(true);
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetchWithAuth("/api/v1/upload", { method: "POST", body: form });
+      setUploading(false);
+      if (!res.ok) return;
+      url = (await res.json()).url;
+    } else if (needsLink) {
+      url = mediaUrl.trim();
+    }
     setSaving(true);
     await fetchWithAuth(`/api/v1/projects/${projectId}/timeline`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, type, mediaUrl: url }),
     });
-    setContent("");
+    setContent(""); setFile(null); setMediaUrl(""); setType("TEXT");
     setSaving(false);
     onMutate();
   }
@@ -452,23 +524,62 @@ function TimelineTab({ projectId, posts, onMutate }: {
     <div className="max-w-2xl space-y-4">
       {canPost && (
         <form onSubmit={submit} className="space-y-2">
+          <div className="flex gap-1 flex-wrap">
+            {POST_TYPES.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => changeType(value)}
+                className={cn(
+                  "px-3 py-1 text-[11px] rounded-md border transition-colors",
+                  type === value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:bg-surface-2"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <textarea
             className={textareaCls}
             rows={3}
-            placeholder="Escreva uma atualização..."
+            placeholder={needsFile ? "Legenda..." : needsLink ? "Descrição do link..." : "Escreva uma atualização..."}
             value={content}
             onChange={(e) => setContent(e.target.value)}
           />
+
+          {needsFile && (
+            <input
+              type="file"
+              accept={type === "PHOTO" ? "image/*" : type === "VIDEO" ? "video/*" : "application/pdf"}
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="text-[12px] text-muted-foreground file:mr-2 file:py-1 file:px-3 file:rounded-md file:border file:border-border file:text-[11px] file:bg-surface-2 file:text-foreground cursor-pointer"
+            />
+          )}
+
+          {needsLink && (
+            <input
+              type="url"
+              value={mediaUrl}
+              onChange={(e) => setMediaUrl(e.target.value)}
+              placeholder="https://..."
+              className={inputCls}
+            />
+          )}
+
           <button
             type="submit"
-            disabled={saving || !content.trim()}
+            disabled={saving || uploading || !canSubmit}
             className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] bg-primary text-primary-foreground rounded-lg disabled:opacity-50 cursor-pointer"
           >
-            {saving ? <Spinner className="size-3" /> : <Plus className="size-3" />}
-            Publicar
+            {(saving || uploading) ? <Spinner className="size-3" /> : <Plus className="size-3" />}
+            {uploading ? "Enviando..." : "Publicar"}
           </button>
         </form>
       )}
+
       <div className="bg-card border border-border rounded-lg px-4 py-1">
         {posts.length === 0 && (
           <p className="text-[13px] text-muted-foreground py-6 text-center">Sem posts ainda.</p>
@@ -476,9 +587,9 @@ function TimelineTab({ projectId, posts, onMutate }: {
         {posts.map((post) => (
           <div key={post.id} className="flex gap-3 py-3 border-b border-border last:border-0">
             <div className="size-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-              <MessageSquare className="size-3.5 text-primary" aria-hidden="true" />
+              <PostTypeIcon type={post.type} />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-text-subtle">{post.author.name} · {timeAgo(post.publishedAt)}</span>
                 {can(role, "org:manage") && (
@@ -488,6 +599,7 @@ function TimelineTab({ projectId, posts, onMutate }: {
                 )}
               </div>
               <p className="text-[13px] mt-0.5">{post.content}</p>
+              <PostMedia post={post} />
             </div>
           </div>
         ))}
