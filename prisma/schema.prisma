@@ -302,7 +302,7 @@ model File {
 
 model AuditLog {
   id             String   @id @default(uuid())
-  organizationId String
+  organizationId String?
   userId         String?
   action         String
   entity         String
@@ -313,8 +313,8 @@ model AuditLog {
   userAgent      String?
   createdAt      DateTime @default(now())
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  user         User?        @relation(fields: [userId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  user         User?         @relation(fields: [userId], references: [id])
 
   @@index([organizationId])
   @@index([entity, entityId])
