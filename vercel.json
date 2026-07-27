@@ -4,5 +4,11 @@
     "src/app/api/v1/webhooks/stripe/route.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/v1/cron/weekly-digest",
+      "schedule": "0 12 * * 1"
+    }
+  ]
 }

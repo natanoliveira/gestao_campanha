@@ -11,6 +11,10 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
+} from "recharts";
 
 type ProjectStatus = "DRAFT" | "ACTIVE" | "COMPLETED" | "ARCHIVED";
 
@@ -32,6 +36,15 @@ type StatsActivity = {
 };
 
 type CategoryStat = { categoryId: string | null; categoryName: string | null; total: number; count: number };
+
+type ChartData = {
+  financialEvolution: { month: string; entradas: number; saidas: number }[];
+  initiativesProgress: { name: string; meta: number; raised: number }[];
+  categoryDistribution: {
+    entries: { name: string; value: number }[];
+    exits:   { name: string; value: number }[];
+  };
+};
 
 type Stats = {
   projectsActive: number;
@@ -72,8 +85,11 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={cn("rounded bg-border/40 animate-pulse", className)} />;
 }
 
+const PIE_COLORS = ["#f59e0b", "#22c55e", "#3b82f6", "#a78bfa", "#f472b6", "#fb923c", "#34d399"];
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [charts, setCharts] = useState<ChartData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,6 +100,10 @@ export default function DashboardPage() {
         setStats(data);
       })
       .catch(() => setFetchError("Falha ao carregar dados. Tente novamente."));
+
+    fetchWithAuth("/api/v1/dashboard/charts")
+      .then(async (r) => { if (r.ok) setCharts(await r.json()); })
+      .catch(() => {/* charts optional */});
   }, []);
 
   if (fetchError) {
@@ -189,6 +209,91 @@ export default function DashboardPage() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Charts ── */}
+        {charts && (
+          <div className="space-y-5">
+            {/* Evolução financeira */}
+            {charts.financialEvolution.length > 0 && (
+              <div className="bg-card border border-border rounded-lg overflow-hidden">
+                <p className="text-[13px] font-medium px-5 py-3 border-b border-border">Evolução Financeira — últimos 6 meses</p>
+                <div className="px-4 py-4 h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={charts.financialEvolution} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b6460" }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 10, fill: "#6b6460" }} axisLine={false} tickLine={false} width={72} />
+                      <Tooltip
+                        formatter={(v: number) => fmt(v)}
+                        contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 12 }}
+                        labelStyle={{ color: "#e5e1dc" }}
+                      />
+                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                      <Line type="monotone" dataKey="entradas" name="Entradas" stroke="#22c55e" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="saidas"   name="Saídas"   stroke="#ef4444" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Iniciativas + Categorias side by side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {charts.initiativesProgress.length > 0 && (
+                <div className="bg-card border border-border rounded-lg overflow-hidden">
+                  <p className="text-[13px] font-medium px-5 py-3 border-b border-border">Progresso das Iniciativas</p>
+                  <div className="px-4 py-4 h-52">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={charts.initiativesProgress} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                        <XAxis type="number" tickFormatter={(v) => fmt(v)} tick={{ fontSize: 10, fill: "#6b6460" }} axisLine={false} tickLine={false} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={80} />
+                        <Tooltip
+                          formatter={(v: number) => fmt(v)}
+                          contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 12 }}
+                        />
+                        <Bar dataKey="meta"   name="Meta"        fill="#2c2824" radius={[0, 3, 3, 0]} />
+                        <Bar dataKey="raised" name="Arrecadado"  fill="#f59e0b" radius={[0, 3, 3, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {(charts.categoryDistribution.entries.length > 0 || charts.categoryDistribution.exits.length > 0) && (
+                <div className="bg-card border border-border rounded-lg overflow-hidden">
+                  <p className="text-[13px] font-medium px-5 py-3 border-b border-border">Distribuição por Categoria</p>
+                  <div className="px-4 py-4 h-52 flex gap-4">
+                    {charts.categoryDistribution.entries.length > 0 && (
+                      <div className="flex-1">
+                        <p className="text-[10px] text-text-subtle text-center mb-1">Entradas</p>
+                        <ResponsiveContainer width="100%" height="90%">
+                          <PieChart>
+                            <Pie data={charts.categoryDistribution.entries} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={56} paddingAngle={2}>
+                              {charts.categoryDistribution.entries.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 11 }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                    {charts.categoryDistribution.exits.length > 0 && (
+                      <div className="flex-1">
+                        <p className="text-[10px] text-text-subtle text-center mb-1">Despesas</p>
+                        <ResponsiveContainer width="100%" height="90%">
+                          <PieChart>
+                            <Pie data={charts.categoryDistribution.exits} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={56} paddingAngle={2}>
+                              {charts.categoryDistribution.exits.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 11 }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

@@ -6,13 +6,16 @@ Sistema de gestão de campanhas/projetos com portal público. Multi-tenant, dark
 
 ## Stack
 
-- **Next.js 15** App Router — route groups `(app)`, `(auth)`, `(public)`
+- **Next.js 16** App Router — route groups `(app)`, `(auth)`, `(public)`
 - **Prisma v7** + `@prisma/adapter-neon` + `@neondatabase/serverless`
 - **Tailwind v4** CSS-first (`@theme inline` em `globals.css`)
 - **base-ui**: `Dialog.Root/Trigger/Backdrop/Popup/Close`, `Drawer.Root swipeDirection="right"`
 - **React Hook Form** + **Zod v4** para formulários
 - **Lucide React** para ícones
 - **IBM Plex Sans** (body) + **IBM Plex Serif** (headings) via `next/font`
+- **recharts** — gráficos no dashboard
+- **@react-pdf/renderer** — geração de PDF por projeto
+- **sonner** — toasts (`<Toaster position="top-center" richColors />` em layout.tsx)
 
 ## Design System
 
@@ -27,7 +30,7 @@ CSS vars em `:root` (dark always-on — nunca adicionar modo light):
 ## Padrões Críticos de Código
 
 ```ts
-// Next.js 15: params é Promise
+// Next.js 16: params é Promise
 const { id } = await params;
 
 // Soft delete: SEMPRE filtrar
@@ -39,11 +42,21 @@ Authorization: Bearer <token>
 // Paginação
 paginatedResponse(data, total, page, limit)
 // → { data, meta: { total, page, limit, totalPages } }
+
+// Upload de arquivos: src/lib/r2.ts (vars: R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL)
+// Pasta: {orgId}/{projectslug[-initiativeslug]}/{uuid}.ext
+
+// Email transacional: src/lib/brevo.ts
+sendEmail(to, subject, html) // via Brevo API, BREVO_API_KEY no .env
+
+// Cron: autenticado por Authorization: Bearer <CRON_SECRET>
 ```
 
 - **Params**: `authenticate(req)` → `{ userId, organizationId, role, isMaster }`
 - **Erros**: `errorResponse(error)` em todos os catch das rotas
-- **Middleware edge**: verifica cookie `refresh_token`; `/api/v1/public/` está em `PUBLIC_PATHS`
+- **Proxy edge**: `src/proxy.ts` com `export function proxy` — não mais `middleware.ts`; `/api/v1/public/` está em `PUBLIC_PATHS`
+- **CurrencyInput**: `src/components/shared/currency-input.tsx` — type="text", máscara pt-BR, emite string numérica
+- **AuditLog**: `organizationId` é opcional no schema (master pode auditar sem org)
 
 ## Sistema de Permissões
 
@@ -89,21 +102,25 @@ const isAdmin   = can(role, "org:manage");
 ### Componentes compartilhados
 - `ConfirmDialog` — todo botão destrutivo: gerencia open, loading, error, auto-close on success
 - `AlertsPanel` — widget de alertas de prazo no dashboard
-- `KPICard`, `FeedItem`, `ProgressBar`, `Badge`, `Spinner`, `AppDrawer`
+- `KPICard`, `FeedItem`, `ProgressBar`, `Badge`, `Spinner`, `AppDrawer`, `CurrencyInput`
 
 ## Módulos Implementados
 
-- **Auth** — login, refresh, logout, session-expired
-- **Dashboard** — KPIs, projetos recentes, atividades, categorias, AlertsPanel
-- **Projetos** — CRUD completo + edição modal + slug automático + portal público
-- **Iniciativas** — CRUD + `endDate` para alertas de prazo + dependências
-- **Lançamentos** — entries/exits por projeto e por iniciativa
+- **Auth** — login (toggle visibilidade de senha), refresh, logout, session-expired
+- **Dashboard** — KPIs, projetos recentes, atividades, AlertsPanel, **3 gráficos Recharts** (linha financeira 6m, barra progresso iniciativas, pizza categorias)
+- **Projetos** — CRUD completo + edição modal + slug automático + portal público + **botão download PDF**
+- **PDF por projeto** — `GET /api/v1/projects/[id]/report` via @react-pdf/renderer (KPIs, iniciativas, entradas, despesas)
+- **Iniciativas** — CRUD + `endDate` para alertas de prazo
+- **Lançamentos** — entries/exits por projeto e por iniciativa (campos moeda com CurrencyInput)
 - **Categorias Financeiras** — CRUD, tabs Entradas/Despesas
 - **Usuários** — CRUD, soft delete, busca
-- **Timeline** — posts com tipos (TEXT/PHOTO/VIDEO/PDF/LINK)
+- **Timeline** — posts com tipos (TEXT/PHOTO/VIDEO/PDF/LINK) + upload para R2
+- **Upload** — `POST /api/v1/upload` — multipart, valida tipo/tamanho, pasta `{orgId}/{slug}/`
 - **Configurações** — 4 abas: Organização, Usuários, Categorias, Plano
-- **Master** — `/master/organizacoes`, `/master/planos`; Org Switcher no sidebar
+- **Master** — `/master/organizacoes`, `/master/planos`; Org Switcher no sidebar (reload ao trocar)
 - **Stripe** — Checkout Session de upgrade + webhook
+- **Email digest semanal** — `GET /api/v1/cron/weekly-digest` — Brevo, somente projetos ativos, admins da org
+- **Dashboard charts** — `GET /api/v1/dashboard/charts` — evolução financeira, progresso iniciativas, distribuição por categoria
 
 ## Credenciais Seed
 
@@ -139,19 +156,26 @@ Executar `/simplify` antes de apresentar código ao usuário.
 
 ## Infra e Deploy
 
-- `vercel.json` na raiz com todas as envs mapeadas
-- Deploy alvo: Vercel + Neon (em andamento)
+- Deploy alvo: Vercel + Neon
+- Envs no dashboard da Vercel (não usar bloco `env` no vercel.json — sintaxe @secret é legada)
+- `vercel.json` contém `framework`, `functions` (Stripe maxDuration 30s) e `crons` (weekly-digest toda segunda 12h UTC)
 - `JWT_SECRET` e `JWT_REFRESH_SECRET` gerados e gravados no `.env` (48 bytes, base64)
-- Ao subir para Vercel: copiar os mesmos valores do `.env` para o dashboard (ou gerar novos — usuários dev perderão sessão)
+- `CRON_SECRET` gerado e no `.env` — **adicionar no Vercel dashboard**
+- Ao subir para Vercel: copiar os valores de JWT do `.env` para o dashboard
 
 ## Master — Visibilidade por Org
 
 **Implementado:** header `X-Organization-Id` enviado pelo `fetchWithAuth` quando `isMaster && selectedOrgId`. O middleware `authenticate` sobrescreve `organizationId` do JWT com o valor do header, dando ao master visão dos dados daquela org sem re-autenticar.
 
 **Alternativa registrada — Token de impersonação:**
-Ao selecionar a org, chamar `POST /api/v1/master/impersonate { orgId }` que retorna um JWT temporário com o `organizationId` da org. `fetchWithAuth` usaria esse token em vez do master token. Vantagens: token auto-contido, sem header extra por requisição. Desvantagens: round-trip ao banco a cada troca de org, gerenciamento de expiração/revogação de tokens extras, maior superfície de ataque. Preferir o header enquanto a escala não exigir isolamento por token.
+`POST /api/v1/master/impersonate { orgId }` → JWT temporário com `organizationId` da org. Vantagem: token auto-contido. Desvantagem: round-trip ao banco a cada troca, gerenciamento de expiração, maior superfície de ataque. Preferir o header enquanto a escala não exigir isolamento por token.
 
 ## Pendências
 
-- Instalar Vitest: `npm install -D vitest` (config já existe em `vitest.config.ts`)
-- R2 public access: habilitar "Public Access" no bucket no painel Cloudflare e atualizar `S3_PUBLIC_URL` no `.env` e Vercel com a URL `r2.dev` (necessário para imagens da timeline renderizarem no browser)
+- **CRON_SECRET** — adicionar no dashboard Vercel
+- **R2 public access** — habilitar "Public Access" no bucket Cloudflare, atualizar `R2_PUBLIC_URL` no `.env` e Vercel com URL `r2.dev` (necessário para imagens da timeline renderizarem no browser)
+- **Comentários no portal público** — apoiadores comentam nos posts da timeline sem precisar de conta (rota pública, moderação pelo admin)
+- **Doações pelo portal público** — Stripe Checkout direto na página pública de cada projeto/iniciativa; lançamento financeiro criado automaticamente via webhook
+- **Notificações em tempo real** — SSE (Server-Sent Events) para alertas de prazo, novos posts na timeline e metas atingidas
+- **Histórico de edições** — diff visual de mudanças em projetos e iniciativas, aproveitando o `AuditLog` já existente
+- **Sessão expirada** — fluxo de detecção, refresh e redirecionamento (página `/session-expired` já existe)

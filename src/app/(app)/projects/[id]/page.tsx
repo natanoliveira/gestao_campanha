@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { fetchWithAuth } from "@/lib/fetch-with-auth";
 import Link from "next/link";
-import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2, Pencil, Image as ImageIcon, Video, FileText } from "lucide-react";
+import { MessageSquare, ExternalLink, Plus, Trash2, BarChart2, Pencil, Image as ImageIcon, Video, FileText, Download } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { CurrencyInput } from "@/components/shared/currency-input";
 import { Dialog } from "@base-ui/react/dialog";
@@ -250,6 +250,16 @@ export default function ProjectDetailPage() {
                 <Pencil className="size-3" aria-hidden="true" />
                 Editar
               </button>
+            )}
+            {project && (
+              <a
+                href={`/api/v1/projects/${project.id}/report`}
+                download
+                className="flex items-center gap-1.5 text-[12px] text-white/80 border border-white/20 rounded-md px-3 py-1.5 hover:bg-white/10 transition-colors"
+              >
+                <Download className="size-3" aria-hidden="true" />
+                PDF
+              </a>
             )}
           </div>
         </div>
