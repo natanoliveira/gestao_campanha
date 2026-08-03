@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
           name: true,
           goal: true,
           status: true,
-          financialEntries: { where: { deletedAt: null }, select: { amount: true } },
+          entries: { where: { deletedAt: null }, select: { amount: true } },
         },
         take: 10,
         orderBy: { goal: "desc" },
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     const initiativesProgress = initiatives.map((i) => ({
       name:   i.name.length > 22 ? i.name.slice(0, 22) + "…" : i.name,
       meta:   Number(i.goal),
-      raised: i.financialEntries.reduce((s, e) => s + Number(e.amount), 0),
+      raised: i.entries.reduce((s, e) => s + Number(e.amount), 0),
     }));
 
     const catMap = new Map(categories.map((c) => [c.id, c.name]));

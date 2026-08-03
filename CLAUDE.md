@@ -9,7 +9,7 @@ Sistema de gestão de campanhas/projetos com portal público. Multi-tenant, dark
 - **Next.js 16** App Router — route groups `(app)`, `(auth)`, `(public)`
 - **Prisma v7** + `@prisma/adapter-neon` + `@neondatabase/serverless`
 - **Tailwind v4** CSS-first (`@theme inline` em `globals.css`)
-- **base-ui**: `Dialog.Root/Trigger/Backdrop/Popup/Close`, `Drawer.Root swipeDirection="right"`
+- **base-ui**: `Dialog.Root/Trigger/Backdrop/Popup/Close`, `Drawer.Root swipeDirection="right"` — import: `import { Dialog } from "@base-ui/react/dialog"` (NÃO `@base-ui-components/react/dialog`)
 - **React Hook Form** + **Zod v4** para formulários
 - **Lucide React** para ícones
 - **IBM Plex Sans** (body) + **IBM Plex Serif** (headings) via `next/font`

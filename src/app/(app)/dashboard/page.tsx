@@ -225,7 +225,7 @@ export default function DashboardPage() {
                       <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b6460" }} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 10, fill: "#6b6460" }} axisLine={false} tickLine={false} width={72} />
                       <Tooltip
-                        formatter={(v: number) => fmt(v)}
+                        formatter={(v) => fmt(Number(v ?? 0))}
                         contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 12 }}
                         labelStyle={{ color: "#e5e1dc" }}
                       />
@@ -249,7 +249,7 @@ export default function DashboardPage() {
                         <XAxis type="number" tickFormatter={(v) => fmt(v)} tick={{ fontSize: 10, fill: "#6b6460" }} axisLine={false} tickLine={false} />
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={80} />
                         <Tooltip
-                          formatter={(v: number) => fmt(v)}
+                          formatter={(v) => fmt(Number(v ?? 0))}
                           contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 12 }}
                         />
                         <Bar dataKey="meta"   name="Meta"        fill="#2c2824" radius={[0, 3, 3, 0]} />
@@ -272,7 +272,7 @@ export default function DashboardPage() {
                             <Pie data={charts.categoryDistribution.entries} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={56} paddingAngle={2}>
                               {charts.categoryDistribution.entries.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                             </Pie>
-                            <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 11 }} />
+                            <Tooltip formatter={(v) => fmt(Number(v ?? 0))} contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 11 }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
@@ -285,7 +285,7 @@ export default function DashboardPage() {
                             <Pie data={charts.categoryDistribution.exits} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={56} paddingAngle={2}>
                               {charts.categoryDistribution.exits.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                             </Pie>
-                            <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 11 }} />
+                            <Tooltip formatter={(v) => fmt(Number(v ?? 0))} contentStyle={{ backgroundColor: "#151413", border: "1px solid #2c2824", borderRadius: 8, fontSize: 11 }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>

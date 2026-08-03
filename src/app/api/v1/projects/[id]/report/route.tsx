@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
           where: { deletedAt: null },
           select: {
             name: true, goal: true, status: true, endDate: true,
-            financialEntries: { where: { deletedAt: null }, select: { amount: true } },
+            entries: { where: { deletedAt: null }, select: { amount: true } },
           },
         },
         financialEntries: { where: { deletedAt: null }, select: { description: true, amount: true, date: true, category: { select: { name: true } } } },
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
             <View style={styles.section}>
               <Text style={styles.sectionHead}>Iniciativas ({project.initiatives.length})</Text>
               {project.initiatives.map((init, i) => {
-                const raised = init.financialEntries.reduce((s, e) => s + Number(e.amount), 0);
+                const raised = init.entries.reduce((s, e) => s + Number(e.amount), 0);
                 const goal = Number(init.goal);
                 const pct = goal > 0 ? Math.round((raised / goal) * 100) : 0;
                 return (
@@ -159,7 +159,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
     const buffer = await renderToBuffer(doc);
 
-    return new Response(buffer, {
+    return new Response(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="relatorio-${id}.pdf"`,

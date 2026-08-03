@@ -8,6 +8,8 @@ type AuditParams = {
   entity: string;
   entityId: string;
   ip?: string | null;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
 };
 
 export async function logAudit(params: AuditParams): Promise<void> {
@@ -19,6 +21,8 @@ export async function logAudit(params: AuditParams): Promise<void> {
       entity:         params.entity,
       entityId:       params.entityId,
       ip:             params.ip,
+      before:         params.before as object | undefined,
+      after:          params.after as object | undefined,
     };
     await prisma.auditLog.create({ data });
   } catch {

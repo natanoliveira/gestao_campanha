@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/brevo";
+import { ProjectStatus } from "@/generated/prisma/client";
 
 export async function GET(req: NextRequest) {
   const secret = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -29,10 +30,10 @@ export async function GET(req: NextRequest) {
     if (org.users.length === 0) continue;
 
     const base        = { organizationId: org.id, deletedAt: null };
-    const activeProj  = { project: { status: "ACTIVE", deletedAt: null } };
+    const activeProj  = { project: { status: ProjectStatus.ACTIVE, deletedAt: null } };
 
     const [projectsActive, totalRaisedAgg, totalSpentAgg, overdue, weekPosts] = await Promise.all([
-      prisma.project.count({ where: { ...base, status: "ACTIVE" } }),
+      prisma.project.count({ where: { ...base, status: ProjectStatus.ACTIVE } }),
       prisma.financialEntry.aggregate({ where: { ...base, ...activeProj }, _sum: { amount: true } }),
       prisma.financialExit.aggregate({ where: { ...base, ...activeProj }, _sum: { amount: true } }),
       prisma.initiative.findMany({
