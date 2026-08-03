@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, AppError } from "@/lib/errors";
+import { buildPixPayload } from "@/lib/pix";
 
 const schema = z.object({
   name:         z.string().min(2).max(100),
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     const project = await prisma.project.findFirst({
       where: { publicSlug: slug, isPublic: true, deletedAt: null },
-      select: { id: true, organizationId: true },
+      select: { id: true, organizationId: true, name: true, organization: { select: { pixKey: true } } },
     });
     if (!project) throw new AppError("Projeto não encontrado", 404, "NOT_FOUND");
 
@@ -33,6 +34,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       if (!init) throw new AppError("Iniciativa não encontrada", 404, "NOT_FOUND");
     }
 
+    const pixKey = project.organization.pixKey ?? null
+    let qrCodeData: string | null = null
+    if (pixKey) {
+      try { qrCodeData = buildPixPayload(pixKey, project.name, body.amount) } catch { /* ignore */ }
+    }
+
     const pledge = await prisma.pledge.create({
       data: {
         organizationId: project.organizationId,
@@ -42,8 +49,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         email:          body.email ?? null,
         amount:         body.amount,
         note:           body.note ?? null,
+        qrCodeData,
       },
-      select: { id: true, name: true, amount: true, status: true },
+      select: { id: true, name: true, amount: true, status: true, qrCodeData: true },
     });
 
     return Response.json(pledge, { status: 201 });
