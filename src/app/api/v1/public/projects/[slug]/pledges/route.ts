@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, AppError } from "@/lib/errors";
 import { buildPixPayload } from "@/lib/pix";
@@ -36,8 +37,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     const pixKey = project.organization.pixKey ?? null
     let qrCodeData: string | null = null
+    let qrCodeImage: string | null = null
     if (pixKey) {
-      try { qrCodeData = buildPixPayload(pixKey, project.name, body.amount) } catch { /* ignore */ }
+      try {
+        qrCodeData = buildPixPayload(pixKey, project.name, body.amount)
+        const svg = await QRCode.toString(qrCodeData, { type: "svg", margin: 1 })
+        qrCodeImage = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`
+      } catch { /* ignore */ }
     }
 
     const pledge = await prisma.pledge.create({
@@ -54,6 +60,6 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       select: { id: true, name: true, amount: true, status: true, qrCodeData: true },
     });
 
-    return Response.json(pledge, { status: 201 });
+    return Response.json({ ...pledge, qrCodeImage }, { status: 201 });
   } catch (e) { return errorResponse(e); }
 }

@@ -47,16 +47,8 @@ export function PledgeForm({ slug, initiatives, pixKey, projectName }: Props) {
       const data = await res.json()
       setConfirmedAmount(amount)
       setConfirmedName(form.name)
-      if (data.qrCodeData) {
-        setPixPayload(data.qrCodeData)
-        try {
-          const QRCode = await import("qrcode")
-          const url = await QRCode.default.toDataURL(data.qrCodeData, { width: 180, margin: 1, color: { dark: "#000000", light: "#ffffff" } })
-          setQrDataUrl(url)
-        } catch (qrErr) {
-          console.error("QR render error:", qrErr)
-        }
-      }
+      if (data.qrCodeData) setPixPayload(data.qrCodeData)
+      if (data.qrCodeImage) setQrDataUrl(data.qrCodeImage)
       transition(() => setStep(2))
     } catch {
       setError("Erro ao registrar oferta. Tente novamente.")
