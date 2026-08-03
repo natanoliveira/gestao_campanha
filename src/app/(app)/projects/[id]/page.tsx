@@ -159,6 +159,26 @@ export default function ProjectDetailPage() {
   const [editStart, setEditStart]     = useState("");
   const [editEnd, setEditEnd]         = useState("");
 
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  async function downloadPdf() {
+    if (!project || pdfLoading) return;
+    setPdfLoading(true);
+    try {
+      const res = await fetchWithAuth(`/api/v1/projects/${id}/report`);
+      if (!res.ok) throw new Error("Erro ao gerar PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `relatorio-${project.name.toLowerCase().replace(/\s+/g, "-")}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
   function openEdit() {
     if (!project) return;
     setEditName(project.name);
@@ -252,14 +272,14 @@ export default function ProjectDetailPage() {
               </button>
             )}
             {project && (
-              <a
-                href={`/api/v1/projects/${project.id}/report`}
-                download
-                className="flex items-center gap-1.5 text-[12px] text-white/80 border border-white/20 rounded-md px-3 py-1.5 hover:bg-white/10 transition-colors"
+              <button
+                onClick={downloadPdf}
+                disabled={pdfLoading}
+                className="flex items-center gap-1.5 text-[12px] text-white/80 border border-white/20 rounded-md px-3 py-1.5 hover:bg-white/10 transition-colors disabled:opacity-50"
               >
-                <Download className="size-3" aria-hidden="true" />
+                {pdfLoading ? <Spinner className="size-3" /> : <Download className="size-3" aria-hidden="true" />}
                 PDF
-              </a>
+              </button>
             )}
           </div>
         </div>
