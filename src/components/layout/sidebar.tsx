@@ -151,20 +151,21 @@ export function Sidebar() {
   )
 
   return (
-    <aside className="w-[220px] shrink-0 fixed top-0 left-0 bottom-0 z-30 flex flex-col bg-card border-r border-border">
+    <aside className="w-[60px] md:w-[220px] shrink-0 fixed top-0 left-0 bottom-0 z-30 flex flex-col bg-card border-r border-border">
       {/* Logo */}
-      <div className="flex items-center gap-2 px-3 h-14 border-b border-border">
+      <div className="flex items-center gap-2 px-3 h-14 border-b border-border overflow-hidden">
         <div className="size-[26px] bg-primary rounded-[6px] grid place-items-center shrink-0">
           <svg viewBox="0 0 24 24" className="size-3.5 fill-white">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
           </svg>
         </div>
-        <span className="text-[13px] font-semibold tracking-tight">GestãoProjetos</span>
+        <span className="hidden md:block text-[13px] font-semibold tracking-tight whitespace-nowrap">GestãoCampanhas</span>
+        <span className="md:hidden text-[13px] font-bold tracking-tight text-primary">GC</span>
       </div>
 
-      {/* Org Switcher — master only */}
+      {/* Org Switcher — master only, hidden on mobile */}
       {isMaster && (
-        <div className="pt-3 pb-1 relative" ref={dropdownRef}>
+        <div className="hidden md:block pt-3 pb-1 relative" ref={dropdownRef}>
           <button
             onClick={() => setOrgDropdownOpen((v) => !v)}
             className="w-full flex items-center gap-2 px-3 py-2 mx-3 rounded-lg bg-surface-2 hover:bg-border transition-colors text-[12px]"
@@ -223,10 +224,10 @@ export function Sidebar() {
       )}
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+      <nav className="flex-1 overflow-y-auto px-2 md:px-3 py-3 space-y-4">
         {NAV.filter((s) => !s.isMasterOnly || isMaster).map(({ section, isMasterOnly, items }) => (
           <div key={section}>
-            <p className="text-[10px] font-medium uppercase tracking-[.08em] text-text-subtle px-2.5 mb-1.5">
+            <p className="hidden md:block text-[10px] font-medium uppercase tracking-[.08em] text-text-subtle px-2.5 mb-1.5">
               {section}
             </p>
             <div className="space-y-0.5">
@@ -234,7 +235,7 @@ export function Sidebar() {
                 const active = pathname === href || pathname.startsWith(href + "/")
                 const blocked = isMaster && !isMasterOnly && !selectedOrgId
                 const itemCls = cn(
-                  "flex items-center gap-2.5 px-2.5 py-[7px] rounded-md text-[13px] transition-colors duration-150 cursor-pointer",
+                  "flex items-center justify-center md:justify-start gap-2.5 px-2 md:px-2.5 py-[7px] rounded-md text-[13px] transition-colors duration-150 cursor-pointer",
                   active
                     ? "bg-accent text-accent-foreground font-medium"
                     : "text-muted-foreground hover:bg-surface-2 hover:text-foreground",
@@ -247,14 +248,14 @@ export function Sidebar() {
                       className={itemCls}
                     >
                       <Icon className="size-[15px] shrink-0" />
-                      {label}
+                      <span className="hidden md:inline">{label}</span>
                     </button>
                   )
                 }
                 return (
                   <Link key={href} href={href} className={itemCls}>
                     <Icon className="size-[15px] shrink-0" />
-                    {label}
+                    <span className="hidden md:inline">{label}</span>
                   </Link>
                 )
               })}
@@ -266,11 +267,11 @@ export function Sidebar() {
       {/* User block */}
       <div className="border-t border-border p-3 space-y-1">
         {user && (
-          <div className="flex items-center gap-2.5 px-2 py-2 rounded-md">
+          <div className="flex items-center justify-center md:justify-start gap-2.5 px-2 py-2 rounded-md">
             <div className="size-7 rounded-full bg-primary grid place-items-center text-[11px] font-semibold text-white shrink-0">
               {initials}
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="hidden md:block min-w-0 flex-1">
               <p className="text-[12px] font-medium truncate leading-tight">{user.name}</p>
               <p className="text-[11px] text-text-subtle capitalize leading-tight">
                 {isMaster ? "Master" : user.role.charAt(0) + user.role.slice(1).toLowerCase()}
@@ -287,7 +288,7 @@ export function Sidebar() {
               className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
             >
               <LogOut className="size-4" />
-              Sair
+              <span className="hidden md:inline">Sair</span>
             </Button>
           }
           title="Sair da conta?"

@@ -118,9 +118,16 @@ export default function DashboardPage() {
     <div className="flex flex-col min-h-screen">
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-7 py-5 border-b border-border">
-        <div>
-          <h1 className="text-[18px] font-semibold font-sans">Dashboard</h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">Visão geral da organização</p>
+        <div className="flex items-center gap-3">
+          <div className="size-8 bg-primary rounded-[7px] grid place-items-center shrink-0">
+            <svg viewBox="0 0 24 24" className="size-4 fill-white">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-[18px] font-semibold font-sans leading-tight">GestãoCampanhas</h1>
+            <p className="text-[13px] text-muted-foreground">Visão geral da organização</p>
+          </div>
         </div>
         <Link
           href="/projects/new"
