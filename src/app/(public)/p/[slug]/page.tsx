@@ -6,6 +6,7 @@ import { Calendar, Copy, Check, MessageCircle, Handshake, Flag, Receipt } from "
 import { cn } from "@/lib/utils"
 import QRCode from "react-qr-code"
 import { buildPixPayload } from "@/lib/pix"
+import { CurrencyInput } from "@/components/shared/currency-input"
 
 /* ── types ── */
 type Initiative = {
@@ -28,7 +29,7 @@ type Portal = {
 
 /* ── helpers ── */
 const fmt = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 })
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })
 
 const pct = (v: number, total: number) =>
   total > 0 ? Math.min(100, Math.round((v / total) * 100)) : 0
@@ -99,7 +100,7 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const amount = Number(form.amount.replace(/\D/g, ""))
+    const amount = Number(form.amount)
     if (!amount || amount <= 0) { setError("Informe um valor válido."); return }
     setLoading(true)
     setError("")
@@ -146,7 +147,7 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
           <p className="text-[12px] text-[#9b9390] text-center">
             Escaneie o QR Code no seu banco para pagar{" "}
             <strong className="text-[#f5f0eb]">
-              {confirmedAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 })}
+              {confirmedAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })}
             </strong>
           </p>
           <div className="bg-white p-3 rounded-xl shadow-lg">
@@ -188,8 +189,13 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
       </div>
       <div>
         <label className="block text-[11px] text-[#9b9390] mb-1">Valor (R$) *</label>
-        <input required value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-          placeholder="Ex: 1200" className={inputCls} />
+        <CurrencyInput
+          required
+          value={form.amount}
+          onChange={v => setForm(f => ({ ...f, amount: v }))}
+          placeholder="R$ 0,00"
+          className="w-full px-3 py-2 text-[13px] bg-[#0c0b0a] border border-[#2c2824] rounded-lg text-[#f5f0eb] outline-none focus:border-[#f59e0b] transition-colors h-auto"
+        />
       </div>
       {initiatives.length > 0 && (
         <div>

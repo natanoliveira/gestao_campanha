@@ -105,8 +105,9 @@ model User {
   timelinePosts    TimelinePost[]
   financialEntries FinancialEntry[]
   financialExits   FinancialExit[]
-  auditLogs        AuditLog[]
-  projectsCreated  Project[]
+  auditLogs           AuditLog[]
+  projectsCreated     Project[]
+  initiativesCreated  Initiative[] @relation("InitiativeCreatedBy")
 
   @@unique([email, organizationId])
   @@index([organizationId])
@@ -173,11 +174,13 @@ model Initiative {
   endDate        DateTime?
   responsibleId  String?
   dependsOnId    String?
+  createdById    String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   deletedAt      DateTime?
 
   project   Project     @relation(fields: [projectId], references: [id])
+  createdBy User?       @relation("InitiativeCreatedBy", fields: [createdById], references: [id])
   dependsOn Initiative? @relation("InitiativeDependency", fields: [dependsOnId], references: [id])
   dependents Initiative[] @relation("InitiativeDependency")
   entries   FinancialEntry[]

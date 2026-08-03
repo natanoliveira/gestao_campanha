@@ -8,6 +8,7 @@ const baseSelect = {
   priority: true, status: true, endDate: true,
   responsibleId: true, dependsOnId: true,
   createdAt: true, deletedAt: true,
+  createdBy: { select: { id: true, name: true } },
 };
 
 export const initiativeRepository = {
@@ -47,7 +48,7 @@ export const initiativeRepository = {
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   },
 
-  create(data: Omit<CreateInitiativeDTO, "endDate"> & { projectId: string; organizationId: string; endDate?: Date }) {
+  create(data: Omit<CreateInitiativeDTO, "endDate"> & { projectId: string; organizationId: string; endDate?: Date; createdById: string }) {
     return prisma.initiative.create({
       data,
       select: {

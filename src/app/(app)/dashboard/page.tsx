@@ -71,7 +71,7 @@ const progressVariant = (pct: number): "default" | "success" | "warning" =>
   pct >= 100 ? "success" : pct < 40 ? "warning" : "default";
 
 const fmt = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 });
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
 
 function timeAgo(iso: string) {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;

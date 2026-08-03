@@ -6,7 +6,7 @@ import { errorResponse, AppError } from "@/lib/errors";
 const schema = z.object({
   name:         z.string().min(2).max(100),
   email:        z.string().email().optional(),
-  amount:       z.coerce.number().positive(),
+  amount:       z.coerce.number().positive().transform(v => Math.round(v * 100) / 100),
   initiativeId: z.string().optional(),
   note:         z.string().max(500).optional(),
 });

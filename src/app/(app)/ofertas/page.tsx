@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Dialog } from "@base-ui/react/dialog"
+import { CurrencyInput } from "@/components/shared/currency-input"
 
 type Pledge = {
   id: string
@@ -31,7 +32,7 @@ const STATUS_BADGE: Record<Pledge["status"], { variant: "draft" | "active" | "ar
 }
 
 const fmt = (n: string | number) =>
-  Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 })
+  Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -105,7 +106,7 @@ export default function OfertasPage() {
         initiativeId: form.initiativeId || undefined,
         name:         form.name,
         email:        form.email || undefined,
-        amount:       Number(form.amount.replace(/\D/g, "")),
+        amount:       Number(form.amount),
         note:         form.note || undefined,
       }),
     })
@@ -176,7 +177,7 @@ export default function OfertasPage() {
                   </div>
                   <div>
                     <label className="block text-[11px] text-muted-foreground mb-1">Valor (R$) *</label>
-                    <input required value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="1.200" className={inputCls} />
+                    <CurrencyInput required value={form.amount} onChange={v => setForm(f => ({ ...f, amount: v }))} />
                   </div>
                   <div>
                     <label className="block text-[11px] text-muted-foreground mb-1">Observação</label>

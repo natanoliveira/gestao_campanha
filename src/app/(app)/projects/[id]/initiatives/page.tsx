@@ -31,6 +31,7 @@ type Initiative = {
   dependsOnId: string | null
   createdAt: string
   deletedAt: string | null
+  createdBy: { id: string; name: string } | null
 }
 
 type SimpleUser = { id: string; name: string }
@@ -685,6 +686,15 @@ function InitiativeModal({ init, projectId, onClose, onMutate }: {
                 <p className="font-semibold">{init.priority}</p>
               </div>
             </div>
+            {init.createdBy && (
+              <div className="bg-surface-2 rounded-lg p-3">
+                <p className="text-[11px] text-text-subtle mb-1">Cadastrado por</p>
+                <p className="font-semibold">{init.createdBy.name}</p>
+                <p className="text-[11px] text-text-subtle mt-0.5">
+                  {new Date(init.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            )}
           </div>
         )}
 

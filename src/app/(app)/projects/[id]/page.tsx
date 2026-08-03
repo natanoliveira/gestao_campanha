@@ -62,7 +62,7 @@ const INIT_STATUS: Record<InitiativeStatus, { variant: BadgeVariant; label: stri
 };
 
 const fmt = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 });
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
 
 function timeAgo(iso: string) {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;

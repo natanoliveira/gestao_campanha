@@ -23,7 +23,7 @@ export const initiativeService = {
     return { ...initiative, raised, spent };
   },
 
-  async create(projectId: string, organizationId: string, dto: CreateInitiativeDTO) {
+  async create(projectId: string, organizationId: string, dto: CreateInitiativeDTO, createdById: string) {
     if (dto.dependsOnId) {
       const dep = await prisma.initiative.findFirst({
         where: { id: dto.dependsOnId, projectId, organizationId, deletedAt: null },
@@ -41,6 +41,7 @@ export const initiativeService = {
       endDate: dto.endDate ? new Date(dto.endDate) : undefined,
       projectId,
       organizationId,
+      createdById,
     });
     const raised = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
     const spent  = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
