@@ -7,7 +7,7 @@ import { fetchWithAuth } from "@/lib/fetch-with-auth"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import * as Dialog from "@base-ui-components/react/dialog"
+import { Dialog } from "@base-ui/react/dialog"
 
 type Pledge = {
   id: string
