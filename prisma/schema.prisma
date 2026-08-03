@@ -80,7 +80,7 @@ model Organization {
   files               File[]
   auditLogs           AuditLog[]
   financialCategories FinancialCategory[]
-  pledges             Pledge[]
+  pledges Pledge[]
 
   @@index([slug])
   @@index([deletedAt])
@@ -151,7 +151,7 @@ model Project {
   financialEntries FinancialEntry[]
   financialExits   FinancialExit[]
   files            File[]
-  pledges          Pledge[]
+  pledges Pledge[]
 
   @@index([organizationId])
   @@index([publicSlug])
@@ -182,7 +182,7 @@ model Initiative {
   dependents Initiative[] @relation("InitiativeDependency")
   entries   FinancialEntry[]
   exits     FinancialExit[]
-  pledges   Pledge[]
+  pledges Pledge[]
 
   @@index([projectId])
   @@index([organizationId])

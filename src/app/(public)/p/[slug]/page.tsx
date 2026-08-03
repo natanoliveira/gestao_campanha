@@ -1,9 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useParams } from "next/navigation"
 import { Calendar, Copy, Check, MessageCircle, Handshake, Flag, Receipt } from "lucide-react"
 import { cn } from "@/lib/utils"
+import QRCode from "react-qr-code"
+import { buildPixPayload } from "@/lib/pix"
 
 /* ── types ── */
 type Initiative = {
@@ -80,53 +82,103 @@ function MetricRow({ label, value, goal }: { label: string; value: number; goal:
 }
 
 /* ── pledge form ── */
-function PledgeForm({ slug, initiatives }: { slug: string; initiatives: Initiative[] }) {
-  const [form, setForm] = useState({ name: "", amount: "", initiativeId: "" })
-  const [sent, setSent]   = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]    = useState("")
+function PledgeForm({ slug, initiatives, pixKey, projectName }: {
+  slug: string; initiatives: Initiative[]
+  pixKey: string | null; projectName: string
+}) {
+  const [form, setForm]           = useState({ name: "", amount: "", initiativeId: "" })
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState("")
+  const [confirmedAmount, setConfirmedAmount] = useState<number | null>(null)
+  const [copiedPix, setCopiedPix] = useState(false)
+
+  const pixPayload = useMemo(
+    () => pixKey && confirmedAmount ? buildPixPayload(pixKey, projectName, confirmedAmount) : null,
+    [pixKey, confirmedAmount, projectName],
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const amount = Number(form.amount.replace(/\D/g, ""))
+    if (!amount || amount <= 0) { setError("Informe um valor válido."); return }
     setLoading(true)
     setError("")
     try {
       const res = await fetch(`/api/v1/public/projects/${slug}/pledges`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          amount: Number(form.amount.replace(/\D/g, "")),
-          initiativeId: form.initiativeId || undefined,
-        }),
+        body: JSON.stringify({ name: form.name, amount, initiativeId: form.initiativeId || undefined }),
       })
       if (!res.ok) throw new Error()
-      setSent(true)
+      setConfirmedAmount(amount)
     } catch {
-      setError("Erro ao registrar compromisso. Tente novamente.")
+      setError("Erro ao registrar oferta. Tente novamente.")
     } finally {
       setLoading(false)
     }
   }
 
+  function copyPixKey() {
+    if (!pixKey) return
+    navigator.clipboard?.writeText(pixKey)
+    setCopiedPix(true)
+    setTimeout(() => setCopiedPix(false), 2000)
+  }
+
+  function reset() {
+    setForm({ name: "", amount: "", initiativeId: "" })
+    setConfirmedAmount(null)
+    setError("")
+  }
+
   const inputCls = "w-full px-3 py-2 text-[13px] bg-[#0c0b0a] border border-[#2c2824] rounded-lg text-[#f5f0eb] outline-none focus:border-[#f59e0b] transition-colors"
 
-  if (sent) {
+  /* ── Step 2: oferta criada → mostrar QR ── */
+  if (confirmedAmount && pixPayload) {
     return (
-      <div className="p-4 rounded-xl bg-[color-mix(in_oklch,#f59e0b_8%,transparent)] border border-[#f59e0b]/30">
-        <div className="flex items-center gap-2 font-medium text-[#fcd34d] mb-1">
-          <Check className="size-4" /> Compromisso registrado!
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2 text-[#22c55e]">
+          <Check className="size-4" />
+          <span className="text-[13px] font-medium">Oferta registrada — agora efetue o pagamento</span>
         </div>
-        <p className="text-[13px] text-[#9b9390] leading-relaxed">
-          Obrigado! Nossa equipe confirmará seu compromisso e ele passará a contar no painel da campanha.
+
+        <div className="rounded-xl border border-[#2c2824] bg-[#0c0b0a] p-5 flex flex-col items-center gap-4">
+          <p className="text-[12px] text-[#9b9390] text-center">
+            Escaneie o QR Code no seu banco para pagar{" "}
+            <strong className="text-[#f5f0eb]">
+              {confirmedAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 })}
+            </strong>
+          </p>
+          <div className="bg-white p-3 rounded-xl shadow-lg">
+            <QRCode value={pixPayload} size={160} />
+          </div>
+          <div className="w-full space-y-2">
+            <p className="text-[11px] text-[#6b6460] uppercase tracking-[0.08em]">Ou use copia e cola</p>
+            <div className="flex gap-2 items-stretch">
+              <code className="flex-1 px-3 py-2 rounded-lg bg-[#151413] border border-[#2c2824] text-[11px] break-all text-[#9b9390] leading-relaxed">
+                {pixPayload}
+              </code>
+              <button type="button" onClick={() => { navigator.clipboard?.writeText(pixPayload); setCopiedPix(true); setTimeout(() => setCopiedPix(false), 2000) }}
+                className="px-3 rounded-lg border border-[#2c2824] text-[#9b9390] hover:bg-[#1c1a18] transition-colors flex flex-col items-center justify-center gap-1 cursor-pointer shrink-0">
+                {copiedPix ? <Check className="size-3.5 text-[#22c55e]" /> : <Copy className="size-3.5" />}
+                <span className="text-[10px]">{copiedPix ? "Copiado" : "Copiar"}</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-[#6b6460]">Chave PIX: <span className="text-[#9b9390]">{pixKey}</span></p>
+          </div>
+        </div>
+
+        <p className="text-[12px] text-[#6b6460] leading-relaxed">
+          Seu compromisso está registrado. Após confirmação do pagamento pela equipe, o valor entrará no painel da campanha.
         </p>
-        <button onClick={() => setSent(false)} className="mt-3 text-[12px] text-[#9b9390] hover:text-[#f5f0eb] transition-colors">
-          Registrar outro
+        <button onClick={reset} className="self-start text-[12px] text-[#9b9390] hover:text-[#f5f0eb] transition-colors">
+          Registrar outra oferta
         </button>
       </div>
     )
   }
 
+  /* ── Step 1: formulário ── */
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <div>
@@ -137,7 +189,7 @@ function PledgeForm({ slug, initiatives }: { slug: string; initiatives: Initiati
       <div>
         <label className="block text-[11px] text-[#9b9390] mb-1">Valor (R$) *</label>
         <input required value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-          placeholder="Ex: 1.200" className={inputCls} />
+          placeholder="Ex: 1200" className={inputCls} />
       </div>
       {initiatives.length > 0 && (
         <div>
@@ -148,10 +200,10 @@ function PledgeForm({ slug, initiatives }: { slug: string; initiatives: Initiati
           </select>
         </div>
       )}
-      {error && <p className="text-[12px] text-destructive">{error}</p>}
+      {error && <p className="text-[12px] text-red-400">{error}</p>}
       <button type="submit" disabled={loading}
         className="self-start px-5 py-2 bg-[#f59e0b] text-[#0c0b0a] rounded-lg text-[13px] font-semibold hover:bg-[#d97706] disabled:opacity-60 transition-colors cursor-pointer">
-        {loading ? "Enviando..." : "Enviar compromisso"}
+        {loading ? "Gerando cobrança..." : "Gerar cobrança PIX"}
       </button>
     </form>
   )
@@ -408,18 +460,15 @@ export default function PublicPortalPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
 
-            {/* PIX */}
+            {/* PIX — chave estática para transferência manual */}
             {portal?.pix.key && (
               <div className="bg-[#151413] border border-[#2c2824] rounded-2xl p-6 flex flex-col gap-4">
                 <div className="flex items-center gap-2">
                   <span className="text-[#f59e0b] text-[20px]">⬡</span>
-                  <span className="text-[16px] font-medium">Doe agora via PIX</span>
+                  <span className="text-[16px] font-medium">Chave PIX</span>
                 </div>
-                {portal.pix.qrCode && (
-                  <img src={portal.pix.qrCode} alt="QR Code PIX" className="w-32 h-32 object-contain rounded-xl border border-[#2c2824] mx-auto" />
-                )}
                 <p className="text-[13px] text-[#9b9390] leading-relaxed">
-                  Transfira diretamente para a conta da campanha.
+                  Copie a chave abaixo ou use o QR Code gerado ao digitar o valor no formulário.
                 </p>
                 <div className="flex gap-2 items-center">
                   <code className="flex-1 px-3 py-2 rounded-lg bg-[#0c0b0a] border border-[#2c2824] text-[13px] overflow-hidden text-ellipsis whitespace-nowrap">
@@ -459,7 +508,12 @@ export default function PublicPortalPage() {
                 <Handshake className="size-5 text-[#f59e0b]" />
                 <span className="text-[16px] font-medium">Registrar compromisso</span>
               </div>
-              <PledgeForm slug={slug as string} initiatives={inits} />
+              <PledgeForm
+                slug={slug as string}
+                initiatives={inits}
+                pixKey={portal?.pix.key ?? null}
+                projectName={portal?.name ?? ""}
+              />
             </div>
           </div>
         </section>
