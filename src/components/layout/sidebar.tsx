@@ -14,6 +14,7 @@ import {
   CreditCard,
   ShieldCheck,
   Scale,
+  HandCoins,
 } from "lucide-react"
 import { can } from "@/lib/permissions"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
@@ -29,6 +30,7 @@ const NAV = [
       { href: "/dashboard", label: "Dashboard",  Icon: LayoutGrid,   permission: "" },
       { href: "/projects",  label: "Projetos",   Icon: FolderKanban, permission: "" },
       { href: "/decisoes",  label: "Decisões",   Icon: Scale,        permission: "initiative:write" },
+      { href: "/ofertas",   label: "Ofertas",    Icon: HandCoins,    permission: "financial:write" },
     ],
   },
   {

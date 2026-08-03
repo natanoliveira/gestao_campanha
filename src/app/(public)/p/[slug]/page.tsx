@@ -1,284 +1,476 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { MessageSquare, Heart } from "lucide-react";
-import { ProgressBar } from "@/components/shared/progress-bar";
-import { FeedItem } from "@/components/shared/feed-item";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
+import { Calendar, Copy, Check, MessageCircle, Handshake, Flag, Receipt } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 /* ── types ── */
-type InitiativeStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+type Initiative = {
+  id: string; name: string; status: string
+  goal: number; pledged: number; raised: number; executed: number
+}
 
 type Portal = {
-  id: string;
-  name: string;
-  description?: string;
-  status: string;
-  organization: string;
+  id: string; name: string; description?: string; status: string; endDate?: string
+  organization: string
+  pix: { key: string | null; qrCode: string | null; whatsapp: string | null }
   stats: {
-    totalRaised: number;
-    totalGoal: number;
-    goalPercent: number;
-    supporters: number;
-    balance: number;
-  };
-  initiatives: {
-    id: string; name: string; goal: string; raised: string; status: InitiativeStatus;
-  }[];
-  timelinePosts: {
-    id: string; content: string; publishedAt: string; author: { name: string };
-  }[];
-  financialEntries: { id: string; description: string; amount: string; date: string }[];
-  financialExits:   { id: string; description: string; amount: string; date: string; supplier?: string }[];
-};
+    totalGoal: number; totalPledged: number; totalRaised: number; totalExecuted: number
+    goalPercent: number; supporters: number
+  }
+  initiatives: Initiative[]
+  timelinePosts: { id: string; content: string; publishedAt: string; author: { name: string } }[]
+  financialExits: { id: string; description: string; amount: string; date: string; supplier?: string }[]
+}
 
 /* ── helpers ── */
-const INIT_STATUS: Record<InitiativeStatus, { variant: BadgeVariant; label: string }> = {
-  PENDING:     { variant: "draft",     label: "Pendente"     },
-  IN_PROGRESS: { variant: "active",    label: "Em Andamento" },
-  COMPLETED:   { variant: "completed", label: "Concluída"    },
-  CANCELLED:   { variant: "archived",  label: "Cancelada"    },
-};
-
 const fmt = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 });
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 })
 
-function timeAgo(iso: string) {
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 3600)   return `${Math.floor(diff / 60)}min atrás`;
-  if (diff < 86400)  return `${Math.floor(diff / 3600)}h atrás`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d atrás`;
-  return new Date(iso).toLocaleDateString("pt-BR");
+const pct = (v: number, total: number) =>
+  total > 0 ? Math.min(100, Math.round((v / total) * 100)) : 0
+
+function barColor(p: number): string {
+  if (p >= 100) return "var(--primary)"
+  if (p >= 65)  return "#22c55e"
+  if (p >= 35)  return "#eab308"
+  return "#ef4444"
 }
 
-const progressVariant = (pct: number): "default" | "success" | "warning" =>
-  pct >= 100 ? "success" : pct < 40 ? "warning" : "default";
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+}
 
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("rounded bg-border/40 animate-pulse", className)} />;
+  return <div className={cn("rounded bg-border/40 animate-pulse", className)} />
 }
 
-/* ── page ── */
+/* ── progress bar ── */
+function Bar({ value, color, glow }: { value: number; color: string; glow?: boolean }) {
+  return (
+    <div className="relative h-3 rounded-full overflow-hidden bg-[#2c2824]">
+      <div
+        className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+        style={{
+          width: `${value}%`,
+          background: color,
+          boxShadow: glow ? `0 0 10px color-mix(in oklch, ${color} 40%, transparent)` : undefined,
+        }}
+      />
+      <span className="absolute right-0 top-0 bottom-0 w-[2px] bg-[#6b6460]/60 rounded" title="Meta" />
+    </div>
+  )
+}
+
+/* ── 4-metric row ── */
+function MetricRow({ label, value, goal }: { label: string; value: number; goal: number }) {
+  const p = pct(value, goal)
+  const color = barColor(p)
+  return (
+    <div className="grid grid-cols-[120px_1fr_130px] gap-3 items-center">
+      <span className="text-[12px] text-[#9b9390]">{label}</span>
+      <Bar value={p} color={color} glow />
+      <span className="text-[12px] text-right whitespace-nowrap">
+        <strong className="font-medium text-[#f5f0eb]">{fmt(value)}</strong>{" "}
+        <span className="text-[#6b6460]">· {p}%</span>
+      </span>
+    </div>
+  )
+}
+
+/* ── pledge form ── */
+function PledgeForm({ slug, initiatives }: { slug: string; initiatives: Initiative[] }) {
+  const [form, setForm] = useState({ name: "", amount: "", initiativeId: "" })
+  const [sent, setSent]   = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]    = useState("")
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError("")
+    try {
+      const res = await fetch(`/api/v1/public/projects/${slug}/pledges`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          amount: Number(form.amount.replace(/\D/g, "")),
+          initiativeId: form.initiativeId || undefined,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      setSent(true)
+    } catch {
+      setError("Erro ao registrar compromisso. Tente novamente.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const inputCls = "w-full px-3 py-2 text-[13px] bg-[#0c0b0a] border border-[#2c2824] rounded-lg text-[#f5f0eb] outline-none focus:border-[#f59e0b] transition-colors"
+
+  if (sent) {
+    return (
+      <div className="p-4 rounded-xl bg-[color-mix(in_oklch,#f59e0b_8%,transparent)] border border-[#f59e0b]/30">
+        <div className="flex items-center gap-2 font-medium text-[#fcd34d] mb-1">
+          <Check className="size-4" /> Compromisso registrado!
+        </div>
+        <p className="text-[13px] text-[#9b9390] leading-relaxed">
+          Obrigado! Nossa equipe confirmará seu compromisso e ele passará a contar no painel da campanha.
+        </p>
+        <button onClick={() => setSent(false)} className="mt-3 text-[12px] text-[#9b9390] hover:text-[#f5f0eb] transition-colors">
+          Registrar outro
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <div>
+        <label className="block text-[11px] text-[#9b9390] mb-1">Seu nome *</label>
+        <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+          placeholder="Nome completo" className={inputCls} />
+      </div>
+      <div>
+        <label className="block text-[11px] text-[#9b9390] mb-1">Valor (R$) *</label>
+        <input required value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+          placeholder="Ex: 1.200" className={inputCls} />
+      </div>
+      {initiatives.length > 0 && (
+        <div>
+          <label className="block text-[11px] text-[#9b9390] mb-1">Iniciativa</label>
+          <select value={form.initiativeId} onChange={e => setForm(f => ({ ...f, initiativeId: e.target.value }))} className={inputCls}>
+            <option value="">Onde for mais necessário</option>
+            {initiatives.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+          </select>
+        </div>
+      )}
+      {error && <p className="text-[12px] text-destructive">{error}</p>}
+      <button type="submit" disabled={loading}
+        className="self-start px-5 py-2 bg-[#f59e0b] text-[#0c0b0a] rounded-lg text-[13px] font-semibold hover:bg-[#d97706] disabled:opacity-60 transition-colors cursor-pointer">
+        {loading ? "Enviando..." : "Enviar compromisso"}
+      </button>
+    </form>
+  )
+}
+
+/* ── main page ── */
 export default function PublicPortalPage() {
-  const { slug } = useParams<{ slug: string }>();
-  const [portal, setPortal]   = useState<Portal | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const { slug } = useParams<{ slug: string }>()
+  const [portal, setPortal]     = useState<Portal | null>(null)
+  const [notFound, setNotFound] = useState(false)
+  const [copied, setCopied]     = useState(false)
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug) return
     fetch(`/api/v1/public/projects/${slug}`)
-      .then((r) => {
-        if (r.status === 404) { setNotFound(true); return null; }
-        return r.json();
-      })
-      .then((d) => { if (d) setPortal(d); });
-  }, [slug]);
+      .then(r => { if (r.status === 404) { setNotFound(true); return null } return r.json() })
+      .then(d => { if (d) setPortal(d) })
+  }, [slug])
+
+  function copyPix() {
+    if (!portal?.pix.key) return
+    navigator.clipboard?.writeText(portal.pix.key)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-[#0c0b0a] flex items-center justify-center">
         <div className="text-center">
-          <p className="text-2xl font-semibold font-serif mb-2">Portal não encontrado</p>
-          <p className="text-muted-foreground text-sm">
-            Este link pode estar desatualizado ou o projeto não é público.
-          </p>
+          <p className="text-2xl font-semibold font-serif mb-2 text-[#f5f0eb]">Portal não encontrado</p>
+          <p className="text-[#6b6460] text-sm">Este link pode estar desatualizado ou o projeto não é público.</p>
         </div>
       </div>
-    );
+    )
   }
 
-  const s = portal?.stats;
+  const s    = portal?.stats
+  const inits = portal?.initiatives ?? []
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* ── Hero ── */}
-      <div
-        className="border-b border-border pb-9 pt-12 text-center px-6"
-        style={{ background: "linear-gradient(135deg,#0f0f1a 0%,#1a1030 100%)" }}
-      >
-        {/* Org label */}
-        {portal ? (
-          <p className="text-[12px] uppercase tracking-[.08em] text-text-subtle mb-3">
-            {portal.organization}
-          </p>
-        ) : (
-          <Skeleton className="h-3 w-24 mx-auto mb-3" />
-        )}
+    <div className="min-h-screen bg-[#0c0b0a] text-[#f5f0eb]" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
 
-        {/* Title */}
+      {/* Nav */}
+      <nav className="sticky top-0 z-20 backdrop-blur-md border-b border-[#2c2824] bg-[#0c0b0a]/80">
+        <div className="max-w-[1040px] mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[14px] font-semibold">
+            <span className="text-[#f59e0b]">◆</span>
+            {portal ? portal.organization : <Skeleton className="h-4 w-28" />}
+          </div>
+          <div className="flex items-center gap-3">
+            {portal?.endDate && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[12px] text-[#9b9390] border border-[#2c2824] rounded-lg px-3 py-1">
+                <Calendar className="size-3.5 text-[#f59e0b]" />
+                Meta até {formatDate(portal.endDate)}
+              </span>
+            )}
+            <a href="#contribuir" className="px-4 py-1.5 bg-[#f59e0b] text-[#0c0b0a] rounded-lg text-[13px] font-semibold hover:bg-[#d97706] transition-colors">
+              Quero contribuir
+            </a>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <header className="max-w-[1040px] mx-auto px-6 pt-16 pb-10">
+        <div className="text-[11px] tracking-[0.14em] uppercase text-[#f59e0b] font-medium mb-3">
+          {portal ? portal.organization : <Skeleton className="h-3 w-24" />}
+        </div>
         {portal ? (
-          <h1 className="text-[28px] sm:text-[32px] font-semibold max-w-xl mx-auto mb-3 leading-tight">
+          <h1 className="font-serif font-medium text-[clamp(28px,4.5vw,44px)] leading-[1.12] max-w-[600px] mb-4">
             {portal.name}
           </h1>
-        ) : (
-          <Skeleton className="h-9 w-64 mx-auto mb-3" />
-        )}
-
-        {/* Description */}
+        ) : <Skeleton className="h-12 w-96 mb-4" />}
         {portal?.description && (
-          <p className="text-[15px] text-muted-foreground max-w-lg mx-auto mb-7 leading-relaxed">
-            {portal.description}
-          </p>
+          <p className="text-[#9b9390] text-[16px] leading-relaxed max-w-[540px]">{portal.description}</p>
         )}
-        {!portal && <Skeleton className="h-4 w-80 mx-auto mb-7" />}
+      </header>
 
-        {/* Stats row */}
-        <div className="inline-flex items-center gap-6 bg-card border border-border rounded-xl px-7 py-4 mb-7">
+      <main className="max-w-[1040px] mx-auto px-6 pb-20 flex flex-col gap-14">
+
+        {/* Visão global */}
+        <section className="bg-[#151413] border border-[#2c2824] rounded-2xl p-7 shadow-lg">
+          <div className="flex flex-wrap items-baseline justify-between gap-3 mb-5">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.1em] text-[#9b9390] font-medium mb-1">Visão global da campanha</div>
+              {s ? (
+                <div className="font-serif text-[32px] font-medium">{fmt(s.totalGoal)}</div>
+              ) : <Skeleton className="h-9 w-40" />}
+            </div>
+          </div>
+
+          {/* 4 metric bars */}
           {s ? (
-            <>
-              <div className="text-center">
-                <p className="text-[11px] text-text-subtle mb-1">Arrecadado</p>
-                <p className="text-[20px] font-bold leading-none">{fmt(s.totalRaised)}</p>
-              </div>
-              <div className="w-px h-9 bg-border" />
-              <div className="text-center">
-                <p className="text-[11px] text-text-subtle mb-1">Meta</p>
-                <p className="text-[20px] font-bold leading-none">{fmt(s.totalGoal)}</p>
-              </div>
-              <div className="w-px h-9 bg-border" />
-              <div className="text-center">
-                <p className="text-[11px] text-text-subtle mb-1">Apoiadores</p>
-                <p className="text-[20px] font-bold leading-none">{s.supporters}</p>
-              </div>
-            </>
+            <div className="flex flex-col gap-3 mb-5">
+              <MetricRow label="Meta"          value={s.totalGoal}     goal={s.totalGoal} />
+              <MetricRow label="Compromissado" value={s.totalPledged}  goal={s.totalGoal} />
+              <MetricRow label="Arrecadado"    value={s.totalRaised}   goal={s.totalGoal} />
+              <MetricRow label="Executado"     value={s.totalExecuted} goal={s.totalGoal} />
+            </div>
           ) : (
-            [...Array(3)].map((_, i) => (
-              <div key={i} className="text-center space-y-1.5">
-                <Skeleton className="h-3 w-16 mx-auto" />
-                <Skeleton className="h-6 w-20 mx-auto" />
-              </div>
-            ))
+            <div className="flex flex-col gap-3 mb-5">
+              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-6" />)}
+            </div>
           )}
-        </div>
 
-        {/* Global progress */}
-        <div className="max-w-sm mx-auto">
-          <div className="flex justify-between text-[12px] text-text-subtle mb-1.5">
-            <span>Progresso geral</span>
-            <span>{s?.goalPercent ?? 0}%</span>
-          </div>
-          <div className="h-2 bg-border rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{
-                width: `${s?.goalPercent ?? 0}%`,
-                background: "linear-gradient(90deg, var(--primary), #d97706)",
-              }}
-            />
-          </div>
-        </div>
-      </div>
+          {/* KPI cards */}
+          {s && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: "Meta",         value: s.totalGoal,     color: "#6b6460" },
+                { label: "Compromissado",value: s.totalPledged,  color: "#9b9390" },
+                { label: "Arrecadado",   value: s.totalRaised,   color: "#f59e0b", highlight: true },
+                { label: "Executado",    value: s.totalExecuted, color: "#fcd34d" },
+              ].map(({ label, value, color, highlight }) => (
+                <div key={label} className={cn(
+                  "border rounded-xl p-4",
+                  highlight ? "border-[#f59e0b]/40 bg-[color-mix(in_oklch,#f59e0b_6%,transparent)]" : "border-[#2c2824] bg-[#0c0b0a]"
+                )}>
+                  <div className="flex items-center gap-2 text-[11px] text-[#9b9390] mb-2">
+                    <span className="w-2 h-2 rounded-full flex-none" style={{ background: color }} />
+                    {label}
+                  </div>
+                  <div className={cn("text-[20px] font-medium font-serif", highlight && "text-[#fcd34d]")}>
+                    {fmt(value)}
+                  </div>
+                  <div className="text-[11px] text-[#6b6460] mt-0.5">{pct(value, s.totalGoal)}% da meta</div>
+                </div>
+              ))}
+            </div>
+          )}
 
-      {/* ── Body ── */}
-      <div className="max-w-2xl mx-auto px-6 py-9 space-y-10">
+          {/* Faltam row */}
+          {s && s.totalGoal > s.totalPledged && (
+            <div className="flex flex-wrap gap-5 p-4 rounded-xl bg-[#1c1a18] border border-[#2c2824]">
+              <div className="flex items-center gap-2 text-[13px] text-[#9b9390]">
+                <Flag className="size-4 text-[#f59e0b]" />
+                Falta comprometer <strong className="text-[#f5f0eb] font-medium ml-1">{fmt(s.totalGoal - s.totalPledged)}</strong>
+              </div>
+              {s.totalPledged > s.totalRaised && (
+                <div className="flex items-center gap-2 text-[13px] text-[#9b9390]">
+                  <Receipt className="size-4 text-[#f59e0b]" />
+                  Comprometido a receber <strong className="text-[#f5f0eb] font-medium ml-1">{fmt(s.totalPledged - s.totalRaised)}</strong>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
 
         {/* Iniciativas */}
-        <section>
-          <h2 className="text-[16px] font-semibold mb-4 pb-2.5 border-b border-border">
-            Iniciativas
-          </h2>
-          <div className="space-y-2.5">
-            {!portal && [...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}
-            {portal?.initiatives.map((init) => {
-              const goal   = Number(init.goal);
-              const raised = Number(init.raised);
-              const pct    = goal > 0 ? Math.round((raised / goal) * 100) : 0;
-              const { variant, label } = INIT_STATUS[init.status];
-              return (
-                <div key={init.id} className="bg-card border border-border rounded-lg px-4 py-3.5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[13px] font-medium">{init.name}</span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={variant}>{label}</Badge>
-                      <span className={cn("text-[13px] font-semibold", pct >= 100 ? "text-success" : "text-accent-foreground")}>
-                        {pct}%
-                      </span>
+        {inits.length > 0 && (
+          <section>
+            <div className="mb-5">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#f59e0b] font-medium mb-2">Iniciativas</div>
+              <h2 className="font-serif font-medium text-[26px]">Onde sua oferta atua</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {inits.map((init, idx) => {
+                const colors = ["#f59e0b", "#22c55e", "#3b82f6", "#a78bfa"]
+                const c = colors[idx % colors.length]
+                return (
+                  <div key={init.id} className="bg-[#151413] border border-[#2c2824] rounded-2xl p-6" style={{ borderTopColor: c, borderTopWidth: 2 }}>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="w-2.5 h-2.5 rounded-sm flex-none" style={{ background: c }} />
+                      <span className="text-[16px] font-medium">{init.name}</span>
                     </div>
+                    <div className="font-serif text-[24px] font-medium mb-4">{fmt(init.goal)}<span className="text-[12px] text-[#6b6460] font-sans ml-2">meta</span></div>
+                    <div className="flex flex-col gap-2.5 mb-4">
+                      <MetricRow label="Compromissado" value={init.pledged}  goal={init.goal} />
+                      <MetricRow label="Arrecadado"    value={init.raised}   goal={init.goal} />
+                      <MetricRow label="Executado"     value={init.executed} goal={init.goal} />
+                    </div>
+                    {init.goal > init.pledged && (
+                      <div className="flex justify-between text-[12px] pt-3 border-t border-[#2c2824]">
+                        <span className="text-[#6b6460]">Falta comprometer</span>
+                        <span className="font-medium">{fmt(init.goal - init.pledged)}</span>
+                      </div>
+                    )}
                   </div>
-                  <ProgressBar value={pct} variant={progressVariant(pct)} />
-                  <p className="text-[11px] text-text-subtle mt-1.5">
-                    {fmt(raised)} de {fmt(goal)}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Timeline */}
-        <section>
-          <h2 className="text-[16px] font-semibold mb-4 pb-2.5 border-b border-border">
-            Timeline
-          </h2>
-          <div className="bg-card border border-border rounded-lg px-5 py-1">
-            {!portal && [...Array(3)].map((_, i) => (
-              <div key={i} className="flex gap-3 py-3 border-b border-border last:border-0">
-                <Skeleton className="size-7 rounded-full shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <Skeleton className="h-3 w-24" /><Skeleton className="h-4 w-full" />
+        {(portal?.timelinePosts?.length ?? 0) > 0 && (
+          <section>
+            <div className="mb-6">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#f59e0b] font-medium mb-2">Timeline</div>
+              <h2 className="font-serif font-medium text-[26px]">Atualizações da campanha</h2>
+            </div>
+            <div className="flex flex-col">
+              {portal!.timelinePosts.map((post, i) => (
+                <div key={post.id} className="grid grid-cols-[20px_1fr] gap-4">
+                  <div className="flex flex-col items-center">
+                    <span className="w-3 h-3 rounded-full flex-none mt-1 bg-[#f59e0b] shadow-[0_0_8px_color-mix(in_oklch,#f59e0b_50%,transparent)]" />
+                    {i < portal!.timelinePosts.length - 1 && (
+                      <span className="flex-1 w-px bg-gradient-to-b from-[#2c2824] to-transparent" />
+                    )}
+                  </div>
+                  <div className="pb-7">
+                    <div className="text-[11px] uppercase tracking-[0.06em] text-[#f59e0b] font-medium">{formatDate(post.publishedAt)}</div>
+                    <div className="text-[13px] font-medium mt-1">{post.author.name}</div>
+                    <div className="text-[13px] text-[#9b9390] mt-1 leading-relaxed max-w-[520px]">{post.content}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {portal?.timelinePosts.length === 0 && (
-              <p className="text-[13px] text-muted-foreground py-8 text-center">Sem atualizações ainda.</p>
-            )}
-            {portal?.timelinePosts.map((post) => (
-              <FeedItem
-                key={post.id}
-                Icon={MessageSquare}
-                author={post.author.name}
-                time={timeAgo(post.publishedAt)}
-                text={post.content}
-              />
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Prestação de contas */}
-        <section>
-          <h2 className="text-[16px] font-semibold mb-4 pb-2.5 border-b border-border">
-            Prestação de Contas
-          </h2>
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            {(portal?.financialEntries.length === 0 && portal?.financialExits.length === 0) && (
-              <p className="text-[13px] text-muted-foreground py-8 text-center">Sem lançamentos públicos.</p>
-            )}
-            {portal?.financialEntries.map((e) => (
-              <div key={e.id} className="flex justify-between items-center px-5 py-3 border-b border-border text-[13px]">
-                <span>{e.description}</span>
-                <span className="font-medium text-success">+ {fmt(Number(e.amount))}</span>
+        {(portal?.financialExits?.length ?? 0) > 0 && (
+          <section>
+            <div className="mb-5 flex flex-wrap justify-between items-end gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-[#f59e0b] font-medium mb-2">Prestação de contas</div>
+                <h2 className="font-serif font-medium text-[26px]">Cada real, registrado</h2>
               </div>
-            ))}
-            {portal?.financialExits.map((e) => (
-              <div key={e.id} className="flex justify-between items-center px-5 py-3 border-b border-border text-[13px]">
-                <div>
-                  <p>{e.description}</p>
-                  {e.supplier && <p className="text-[11px] text-text-subtle">{e.supplier}</p>}
+              {s && <span className="inline-flex items-center gap-1.5 text-[12px] border border-[#f59e0b]/40 text-[#fcd34d] rounded-lg px-3 py-1"><Receipt className="size-3.5" /> Executado: {fmt(s.totalExecuted)}</span>}
+            </div>
+            <div className="bg-[#151413] border border-[#2c2824] rounded-2xl overflow-auto">
+              <table className="w-full text-[13px] min-w-[480px]">
+                <thead>
+                  <tr className="border-b border-[#2c2824] text-[#6b6460] text-left">
+                    <th className="px-5 py-3 font-medium">Data</th>
+                    <th className="px-5 py-3 font-medium">Descrição</th>
+                    <th className="px-5 py-3 font-medium text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {portal!.financialExits.map(e => (
+                    <tr key={e.id} className="border-b border-[#2c2824] last:border-0">
+                      <td className="px-5 py-3 text-[#6b6460] whitespace-nowrap">{formatDate(e.date)}</td>
+                      <td className="px-5 py-3">
+                        {e.description}
+                        {e.supplier && <span className="block text-[11px] text-[#6b6460]">{e.supplier}</span>}
+                      </td>
+                      <td className="px-5 py-3 font-medium text-right whitespace-nowrap">{fmt(Number(e.amount))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* Como contribuir */}
+        <section id="contribuir" style={{ scrollMarginTop: "80px" }}>
+          <div className="mb-5">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[#f59e0b] font-medium mb-2">Como contribuir</div>
+            <h2 className="font-serif font-medium text-[26px]">Faça parte desta missão</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+
+            {/* PIX */}
+            {portal?.pix.key && (
+              <div className="bg-[#151413] border border-[#2c2824] rounded-2xl p-6 flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[#f59e0b] text-[20px]">⬡</span>
+                  <span className="text-[16px] font-medium">Doe agora via PIX</span>
                 </div>
-                <span className="font-medium text-destructive">− {fmt(Number(e.amount))}</span>
-              </div>
-            ))}
-            {portal && (s?.totalRaised ?? 0) + (s?.supporters ?? 0) > 0 && (
-              <div className="flex justify-between items-center px-5 py-3 border-t border-border text-[13px] font-semibold">
-                <span>Saldo atual</span>
-                <span className={(s?.balance ?? 0) >= 0 ? "text-success" : "text-destructive"}>
-                  {fmt(s?.balance ?? 0)}
-                </span>
+                {portal.pix.qrCode && (
+                  <img src={portal.pix.qrCode} alt="QR Code PIX" className="w-32 h-32 object-contain rounded-xl border border-[#2c2824] mx-auto" />
+                )}
+                <p className="text-[13px] text-[#9b9390] leading-relaxed">
+                  Transfira diretamente para a conta da campanha.
+                </p>
+                <div className="flex gap-2 items-center">
+                  <code className="flex-1 px-3 py-2 rounded-lg bg-[#0c0b0a] border border-[#2c2824] text-[13px] overflow-hidden text-ellipsis whitespace-nowrap">
+                    {portal.pix.key}
+                  </code>
+                  <button onClick={copyPix} className="px-3 py-2 rounded-lg border border-[#2c2824] text-[12px] text-[#9b9390] hover:bg-[#1c1a18] transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1">
+                    {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+                    {copied ? "Copiado" : "Copiar"}
+                  </button>
+                </div>
               </div>
             )}
+
+            {/* WhatsApp */}
+            {portal?.pix.whatsapp && (
+              <div className="bg-[#151413] border border-[#2c2824] rounded-2xl p-6 flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="size-5 text-[#f59e0b]" />
+                  <span className="text-[16px] font-medium">Comprometa-se pelo WhatsApp</span>
+                </div>
+                <p className="text-[13px] text-[#9b9390] leading-relaxed">
+                  Fale com a equipe da campanha, informe o valor e a iniciativa. Seu compromisso entra no painel em até 24h.
+                </p>
+                <a
+                  href={`https://wa.me/${portal.pix.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent("Olá! Quero registrar um compromisso para a campanha.")}`}
+                  target="_blank" rel="noopener"
+                  className="self-start inline-flex items-center gap-2 px-4 py-2 bg-[#f59e0b] text-[#0c0b0a] rounded-lg text-[13px] font-semibold hover:bg-[#d97706] transition-colors"
+                >
+                  <MessageCircle className="size-4" /> Abrir conversa
+                </a>
+              </div>
+            )}
+
+            {/* Pledge form */}
+            <div className="bg-[#151413] border border-[#2c2824] rounded-2xl p-6 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <Handshake className="size-5 text-[#f59e0b]" />
+                <span className="text-[16px] font-medium">Registrar compromisso</span>
+              </div>
+              <PledgeForm slug={slug as string} initiatives={inits} />
+            </div>
           </div>
         </section>
+      </main>
 
-        {/* CTA */}
-        <div className="text-center pb-4">
-          <button className="inline-flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-md text-[14px] font-medium hover:bg-primary/90 transition-colors cursor-pointer">
-            <Heart className="size-4" />
-            Como contribuir
-          </button>
+      <footer className="border-t border-[#2c2824] py-7 px-6">
+        <div className="max-w-[1040px] mx-auto flex flex-wrap justify-between gap-3 text-[12px] text-[#6b6460]">
+          <span>{portal?.organization} · Campanha</span>
+          <span>Dados atualizados pelo painel de gestão</span>
         </div>
-      </div>
+      </footer>
     </div>
-  );
+  )
 }

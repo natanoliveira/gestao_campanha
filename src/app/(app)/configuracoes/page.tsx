@@ -37,6 +37,9 @@ type OrgData = {
   active: boolean
   createdAt: string
   plan: { id: string; name: string; priceMonthly: number } | null
+  pixKey?: string | null
+  whatsapp?: string | null
+  pixQrCodeUrl?: string | null
 }
 
 type Role = "ADMIN" | "MANAGER" | "TREASURER" | "COMMUNICATION" | "AUDITOR" | "MEMBER"
@@ -134,7 +137,13 @@ function OrgTab() {
       const res = await fetchWithAuth(`/api/v1/organizations/${org.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, slug }),
+        body: JSON.stringify({
+          name,
+          slug,
+          pixKey:       org.pixKey       ?? null,
+          whatsapp:     org.whatsapp     ?? null,
+          pixQrCodeUrl: org.pixQrCodeUrl ?? null,
+        }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -183,6 +192,61 @@ function OrgTab() {
         />
         <p className="text-[11px] text-muted-foreground mt-1">Altera a URL pública da organização</p>
       </div>
+
+      <div>
+        <label htmlFor="org-pix-key" className="block text-[12px] font-medium text-muted-foreground mb-1">
+          Chave PIX
+        </label>
+        <input
+          id="org-pix-key"
+          defaultValue={org.pixKey ?? ""}
+          onChange={(e) => setOrg({ ...org, pixKey: e.target.value })}
+          placeholder="email@org.com.br ou CNPJ"
+          readOnly={!isAdmin}
+          className={cn(inputCls, !isAdmin && "opacity-60 cursor-default")}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="org-whatsapp" className="block text-[12px] font-medium text-muted-foreground mb-1">
+          WhatsApp (com DDD e código do país)
+        </label>
+        <input
+          id="org-whatsapp"
+          defaultValue={org.whatsapp ?? ""}
+          onChange={(e) => setOrg({ ...org, whatsapp: e.target.value })}
+          placeholder="+55 86 99999-0000"
+          readOnly={!isAdmin}
+          className={cn(inputCls, !isAdmin && "opacity-60 cursor-default")}
+        />
+      </div>
+
+      {isAdmin && (
+        <div>
+          <label className="block text-[12px] font-medium text-muted-foreground mb-1">
+            QR Code PIX (imagem)
+          </label>
+          {org.pixQrCodeUrl && (
+            <img src={org.pixQrCodeUrl} alt="QR Code PIX" className="w-32 h-32 object-contain rounded-lg border border-border mb-2" />
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              const fd = new FormData()
+              fd.append("file", file)
+              fd.append("folder", "pix-qrcode")
+              const res = await fetchWithAuth("/api/v1/upload", { method: "POST", body: fd })
+              const data = await res.json()
+              if (data.url) setOrg({ ...org, pixQrCodeUrl: data.url })
+            }}
+            className="text-[12px] text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-[12px] file:bg-surface-2 file:text-foreground file:cursor-pointer hover:file:bg-border/60 transition-colors"
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">Exibido no portal público para doações via PIX.</p>
+        </div>
+      )}
 
       {feedback && (
         <p className={cn(

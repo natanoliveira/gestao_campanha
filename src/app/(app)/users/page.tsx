@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { fetchWithAuth } from "@/lib/fetch-with-auth"
-import { Eye, Pencil, UserX, UserCheck, Trash2, Plus, Search } from "lucide-react"
+import { Eye, Pencil, UserX, UserCheck, Trash2, Plus, Search, X, UserPlus, ShieldCheck, Users } from "lucide-react"
 import { Dialog } from "@base-ui/react/dialog"
 import { AppDrawer } from "@/components/shared/app-drawer"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
@@ -72,6 +72,65 @@ const inputCls =
 const selectCls =
   "w-full h-9 px-3 text-[13px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring cursor-pointer"
 
+// ─── Onboarding ───────────────────────────────────────────────────────────────
+
+const GUIDE_KEY = "users-guide-dismissed"
+
+const STEPS = [
+  {
+    Icon: UserPlus,
+    step: "1",
+    title: "Adicionar usuário",
+    desc: 'Clique em "Novo Usuário" para convidar um membro da equipe com nome, e-mail e senha.',
+  },
+  {
+    Icon: ShieldCheck,
+    step: "2",
+    title: "Definir o perfil",
+    desc: "Escolha o nível de acesso: Admin, Gerente, Tesoureiro, Comunicação, Auditor ou Membro.",
+  },
+  {
+    Icon: Users,
+    step: "3",
+    title: "Gerenciar a equipe",
+    desc: "Edite, ative, desative ou remova membros a qualquer momento pela tabela.",
+  },
+]
+
+function GettingStartedBanner({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="relative rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
+      <button
+        onClick={onDismiss}
+        className="absolute right-3 top-3 p-1 rounded-md text-text-subtle hover:text-foreground hover:bg-border/60 transition-colors cursor-pointer"
+        aria-label="Dispensar guia"
+      >
+        <X className="size-3.5" />
+      </button>
+
+      <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-primary mb-3">
+        Como gerenciar sua equipe
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {STEPS.map(({ Icon, step, title, desc }) => (
+          <div key={step} className="flex gap-3">
+            <div className="flex-none flex items-center justify-center size-8 rounded-lg bg-primary/10 border border-primary/20 shrink-0">
+              <Icon className="size-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-[12px] font-semibold text-foreground leading-snug">
+                <span className="text-primary mr-1">{step}.</span>{title}
+              </p>
+              <p className="text-[11px] text-text-subtle mt-0.5 leading-relaxed">{desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function UsersPage() {
@@ -85,8 +144,20 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen]   = useState(false)
   const [editUser, setEditUser]       = useState<User | null>(null)
   const [detailUser, setDetailUser]   = useState<User | null>(null)
+  const [showGuide, setShowGuide]     = useState(false)
 
   const isAdmin = can(currentRole(), "org:manage")
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && !localStorage.getItem(GUIDE_KEY)) {
+      setShowGuide(true)
+    }
+  }, [])
+
+  function dismissGuide() {
+    localStorage.setItem(GUIDE_KEY, "true")
+    setShowGuide(false)
+  }
 
   const load = useCallback(() => {
     const params = new URLSearchParams()
@@ -143,6 +214,8 @@ export default function UsersPage() {
       </div>
 
       <div className="p-7 space-y-5">
+        {showGuide && <GettingStartedBanner onDismiss={dismissGuide} />}
+
         {/* Filtros */}
         <div className="flex flex-wrap gap-2 items-center">
           <div className="relative">
