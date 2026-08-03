@@ -70,12 +70,17 @@ model Organization {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  pixKey       String?
+  whatsapp     String?
+  pixQrCodeUrl String?
+
   plan                Plan?               @relation(fields: [planId], references: [id])
   users               User[]
   projects            Project[]
   files               File[]
   auditLogs           AuditLog[]
   financialCategories FinancialCategory[]
+  pledges             Pledge[]
 
   @@index([slug])
   @@index([deletedAt])
@@ -146,6 +151,7 @@ model Project {
   financialEntries FinancialEntry[]
   financialExits   FinancialExit[]
   files            File[]
+  pledges          Pledge[]
 
   @@index([organizationId])
   @@index([publicSlug])
@@ -176,11 +182,42 @@ model Initiative {
   dependents Initiative[] @relation("InitiativeDependency")
   entries   FinancialEntry[]
   exits     FinancialExit[]
+  pledges   Pledge[]
 
   @@index([projectId])
   @@index([organizationId])
   @@index([deletedAt])
   @@map("initiatives")
+}
+
+enum PledgeStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model Pledge {
+  id             String       @id @default(uuid())
+  organizationId String
+  projectId      String
+  initiativeId   String?
+  name           String
+  email          String?
+  amount         Decimal      @db.Decimal(12, 2)
+  note           String?
+  status         PledgeStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project      @relation(fields: [projectId], references: [id])
+  initiative   Initiative?  @relation(fields: [initiativeId], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([initiativeId])
+  @@index([status])
+  @@map("pledges")
 }
 
 model TimelinePost {
