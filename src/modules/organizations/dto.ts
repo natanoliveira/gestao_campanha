@@ -6,7 +6,11 @@ export const createOrganizationSchema = z.object({
   logo: z.string().url().optional(),
 });
 
-export const updateOrganizationSchema = createOrganizationSchema.partial();
+export const updateOrganizationSchema = createOrganizationSchema.extend({
+  pixKey:       z.string().max(200).optional().nullable(),
+  whatsapp:     z.string().max(20).optional().nullable(),
+  pixQrCodeUrl: z.string().url().optional().nullable(),
+}).partial();
 
 export type CreateOrganizationDTO = z.infer<typeof createOrganizationSchema>;
 export type UpdateOrganizationDTO = z.infer<typeof updateOrganizationSchema>;

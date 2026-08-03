@@ -8,6 +8,9 @@ const select = {
   logo: true,
   active: true,
   createdAt: true,
+  pixKey: true,
+  whatsapp: true,
+  pixQrCodeUrl: true,
   plan: { select: { id: true, name: true, priceMonthly: true } },
 };
 
