@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
           entityId: true,
           ip: true,
           createdAt: true,
+          before: true,
+          after: true,
           user: { select: { id: true, name: true, email: true } },
           organization: { select: { id: true, name: true } },
         },

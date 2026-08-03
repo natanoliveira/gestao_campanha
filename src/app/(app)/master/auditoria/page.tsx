@@ -17,6 +17,8 @@ type AuditEntry = {
   entityId: string
   ip: string | null
   createdAt: string
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
   user: { id: string; name: string; email: string } | null
   organization: { id: string; name: string } | null
 }
@@ -80,6 +82,48 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={cn("rounded bg-border/40 animate-pulse", className)} />
 }
 
+// ── diff view ────────────────────────────────────────────────────────────────
+
+const FIELD_LABEL: Record<string, string> = {
+  name: "Nome", title: "Título", description: "Descrição", status: "Status",
+  slug: "Slug", amount: "Valor", type: "Tipo", date: "Data",
+  startDate: "Início", endDate: "Prazo", goal: "Meta",
+  email: "E-mail", role: "Perfil", phone: "Telefone",
+  content: "Conteúdo", url: "URL",
+}
+
+function fmt(v: unknown): string {
+  if (v === null || v === undefined) return "—"
+  if (typeof v === "boolean") return v ? "Sim" : "Não"
+  return String(v)
+}
+
+function DiffView({ before, after }: { before: Record<string, unknown>; after: Record<string, unknown> }) {
+  const changed = Object.keys(after).filter((k) => fmt(before[k]) !== fmt(after[k]))
+  if (changed.length === 0) return null
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] text-text-subtle uppercase tracking-wide font-medium">Campos alterados</p>
+      <div className="border border-border rounded-xl overflow-hidden divide-y divide-border">
+        {changed.map((key) => (
+          <div key={key} className="grid grid-cols-[minmax(80px,1fr)_1fr_1fr] bg-card text-[12px]">
+            <div className="px-3 py-2.5 text-text-subtle font-medium border-r border-border self-center">
+              {FIELD_LABEL[key] ?? key}
+            </div>
+            <div className="px-3 py-2.5 text-destructive/80 bg-destructive/5 border-r border-border break-all line-through decoration-destructive/40">
+              {fmt(before[key])}
+            </div>
+            <div className="px-3 py-2.5 text-success/90 bg-success/5 break-all">
+              {fmt(after[key])}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── drawer detail ────────────────────────────────────────────────────────────
 
 function AuditDetail({ log }: { log: AuditEntry }) {
@@ -123,6 +167,11 @@ function AuditDetail({ log }: { log: AuditEntry }) {
           </div>
         ))}
       </div>
+
+      {/* Diff */}
+      {log.action === "update" && log.before && log.after && (
+        <DiffView before={log.before} after={log.after} />
+      )}
 
       {/* Technical ID */}
       <div className="rounded-lg border border-border bg-surface-2 px-4 py-3">
