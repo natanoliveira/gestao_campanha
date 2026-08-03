@@ -49,17 +49,33 @@ export default function OfertasPage() {
   const [total, setTotal]           = useState(0)
   const [page, setPage]             = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const [filterStatus, setFilterStatus] = useState("")
-  const [projects, setProjects]     = useState<Project[]>([])
-  const [initiatives, setInitiatives] = useState<Initiative[]>([])
-  const [newOpen, setNewOpen]       = useState(false)
-  const [form, setForm]             = useState({ name: "", email: "", amount: "", projectId: "", initiativeId: "", note: "" })
-  const [saving, setSaving]         = useState(false)
+
+  // filters
+  const [filterStatus,      setFilterStatus]      = useState("")
+  const [filterQ,           setFilterQ]           = useState("")
+  const [filterProjectId,   setFilterProjectId]   = useState("")
+  const [filterInitiativeId,setFilterInitiativeId]= useState("")
+  const [filterDateFrom,    setFilterDateFrom]     = useState("")
+  const [filterDateTo,      setFilterDateTo]       = useState("")
+
+  // data
+  const [projects,          setProjects]      = useState<Project[]>([])
+  const [filterInits,       setFilterInits]   = useState<Initiative[]>([])
+  const [formInits,         setFormInits]     = useState<Initiative[]>([])
+
+  const [newOpen, setNewOpen] = useState(false)
+  const [form, setForm]       = useState({ name: "", email: "", amount: "", projectId: "", initiativeId: "", note: "" })
+  const [saving, setSaving]   = useState(false)
 
   const load = useCallback(() => {
     setPledges(null)
     const params = new URLSearchParams({ page: String(page), limit: "20" })
-    if (filterStatus) params.set("status", filterStatus)
+    if (filterStatus)       params.set("status",       filterStatus)
+    if (filterQ)            params.set("q",             filterQ)
+    if (filterProjectId)    params.set("projectId",     filterProjectId)
+    if (filterInitiativeId) params.set("initiativeId",  filterInitiativeId)
+    if (filterDateFrom)     params.set("dateFrom",      filterDateFrom)
+    if (filterDateTo)       params.set("dateTo",        filterDateTo)
     fetchWithAuth(`/api/v1/pledges?${params}`)
       .then(r => r.json())
       .then(d => {
@@ -67,7 +83,7 @@ export default function OfertasPage() {
         setTotal(d.meta?.total ?? 0)
         setTotalPages(d.meta?.totalPages ?? 1)
       })
-  }, [page, filterStatus])
+  }, [page, filterStatus, filterQ, filterProjectId, filterInitiativeId, filterDateFrom, filterDateTo])
 
   useEffect(() => { load() }, [load])
 
@@ -77,12 +93,28 @@ export default function OfertasPage() {
       .then(d => setProjects(d.data ?? []))
   }, [])
 
+  // initiatives for filter dropdown
   useEffect(() => {
-    if (!form.projectId) return setInitiatives([])
+    if (!filterProjectId) { setFilterInits([]); setFilterInitiativeId(""); return }
+    fetchWithAuth(`/api/v1/projects/${filterProjectId}/initiatives?limit=100`)
+      .then(r => r.json())
+      .then(d => setFilterInits(d.data ?? []))
+  }, [filterProjectId])
+
+  // initiatives for create form
+  useEffect(() => {
+    if (!form.projectId) return setFormInits([])
     fetchWithAuth(`/api/v1/projects/${form.projectId}/initiatives?limit=100`)
       .then(r => r.json())
-      .then(d => setInitiatives((d.data ?? []).map((i: Initiative & { projectId?: string }) => ({ ...i, projectId: form.projectId }))))
+      .then(d => setFormInits((d.data ?? []).map((i: Initiative & { projectId?: string }) => ({ ...i, projectId: form.projectId }))))
   }, [form.projectId])
+
+  function resetFilters() {
+    setPage(1); setFilterStatus(""); setFilterQ(""); setFilterProjectId("")
+    setFilterInitiativeId(""); setFilterDateFrom(""); setFilterDateTo("")
+  }
+
+  const hasFilters = !!(filterStatus || filterQ || filterProjectId || filterInitiativeId || filterDateFrom || filterDateTo)
 
   async function updateStatus(id: string, status: "CONFIRMED" | "CANCELLED") {
     const res = await fetchWithAuth(`/api/v1/pledges/${id}`, {
@@ -119,27 +151,22 @@ export default function OfertasPage() {
   }
 
   const selectCls = "h-8 px-3 text-[12px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring transition-colors cursor-pointer"
+  const inputFilterCls = "h-8 px-3 text-[12px] bg-background border border-border rounded-lg text-foreground outline-none focus:border-ring transition-colors"
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between px-7 py-5 border-b border-border">
-        <div>
-          <h1 className="text-[18px] font-semibold font-sans flex items-center gap-2">
-            <HandCoins className="size-5 text-muted-foreground" />
-            Ofertas
-          </h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">
-            {total > 0 ? `${total.toLocaleString("pt-BR")} ${total === 1 ? "oferta" : "ofertas"}` : "Compromissos e doações da campanha"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select value={filterStatus} onChange={e => { setPage(1); setFilterStatus(e.target.value) }} className={selectCls}>
-            <option value="">Todas</option>
-            <option value="PENDING">Pendentes</option>
-            <option value="CONFIRMED">Confirmadas</option>
-            <option value="CANCELLED">Canceladas</option>
-          </select>
+      <div className="px-7 py-5 border-b border-border space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[18px] font-semibold font-sans flex items-center gap-2">
+              <HandCoins className="size-5 text-muted-foreground" />
+              Ofertas
+            </h1>
+            <p className="text-[13px] text-muted-foreground mt-0.5">
+              {total > 0 ? `${total.toLocaleString("pt-BR")} ${total === 1 ? "oferta" : "ofertas"}` : "Compromissos e doações da campanha"}
+            </p>
+          </div>
 
           {/* Nova oferta manual */}
           <Dialog.Root open={newOpen} onOpenChange={setNewOpen}>
@@ -158,12 +185,12 @@ export default function OfertasPage() {
                       {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
-                  {initiatives.length > 0 && (
+                  {formInits.length > 0 && (
                     <div>
                       <label className="block text-[11px] text-muted-foreground mb-1">Iniciativa</label>
                       <select value={form.initiativeId} onChange={e => setForm(f => ({ ...f, initiativeId: e.target.value }))} className={inputCls}>
                         <option value="">Geral (sem iniciativa)</option>
-                        {initiatives.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                        {formInits.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
                       </select>
                     </div>
                   )}
@@ -195,6 +222,43 @@ export default function OfertasPage() {
               </Dialog.Popup>
             </Dialog.Portal>
           </Dialog.Root>
+        </div>
+
+        {/* Filter bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={filterQ} onChange={e => { setPage(1); setFilterQ(e.target.value) }}
+            placeholder="Buscar ofertante..." className={`${inputFilterCls} w-44`} />
+
+          <select value={filterStatus} onChange={e => { setPage(1); setFilterStatus(e.target.value) }} className={selectCls}>
+            <option value="">Todas situações</option>
+            <option value="PENDING">Pendente</option>
+            <option value="CONFIRMED">Confirmada</option>
+            <option value="CANCELLED">Cancelada</option>
+          </select>
+
+          <select value={filterProjectId} onChange={e => { setPage(1); setFilterProjectId(e.target.value); setFilterInitiativeId("") }} className={selectCls}>
+            <option value="">Todos projetos</option>
+            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+
+          {filterInits.length > 0 && (
+            <select value={filterInitiativeId} onChange={e => { setPage(1); setFilterInitiativeId(e.target.value) }} className={selectCls}>
+              <option value="">Todas iniciativas</option>
+              {filterInits.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+            </select>
+          )}
+
+          <input type="date" value={filterDateFrom} onChange={e => { setPage(1); setFilterDateFrom(e.target.value) }}
+            className={`${inputFilterCls} w-36`} title="Data inicial" />
+          <input type="date" value={filterDateTo} onChange={e => { setPage(1); setFilterDateTo(e.target.value) }}
+            className={`${inputFilterCls} w-36`} title="Data final" />
+
+          {hasFilters && (
+            <button onClick={resetFilters} className="h-8 px-3 text-[12px] text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors cursor-pointer">
+              Limpar filtros
+            </button>
+          )}
         </div>
       </div>
 

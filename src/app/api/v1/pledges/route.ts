@@ -22,15 +22,27 @@ export async function GET(req: NextRequest) {
     authorize(payload, "financial:write");
 
     const { searchParams } = new URL(req.url);
-    const page      = Math.max(1, Number(searchParams.get("page")  ?? 1));
-    const limit     = Math.min(50, Math.max(1, Number(searchParams.get("limit") ?? 20)));
-    const status    = searchParams.get("status")    ?? undefined;
-    const projectId = searchParams.get("projectId") ?? undefined;
+    const page          = Math.max(1, Number(searchParams.get("page")  ?? 1));
+    const limit         = Math.min(50, Math.max(1, Number(searchParams.get("limit") ?? 20)));
+    const status        = searchParams.get("status")       ?? undefined;
+    const projectId     = searchParams.get("projectId")    ?? undefined;
+    const initiativeId  = searchParams.get("initiativeId") ?? undefined;
+    const q             = searchParams.get("q")            ?? undefined;
+    const dateFrom      = searchParams.get("dateFrom")     ?? undefined;
+    const dateTo        = searchParams.get("dateTo")       ?? undefined;
 
     const where = {
       organizationId: payload.organizationId,
-      ...(status    ? { status: status as "PENDING" | "CONFIRMED" | "CANCELLED" } : {}),
-      ...(projectId ? { projectId } : {}),
+      ...(status       ? { status: status as "PENDING" | "CONFIRMED" | "CANCELLED" } : {}),
+      ...(projectId    ? { projectId } : {}),
+      ...(initiativeId ? { initiativeId } : {}),
+      ...(q            ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+      ...((dateFrom || dateTo) ? {
+        createdAt: {
+          ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+          ...(dateTo   ? { lte: new Date(dateTo + "T23:59:59") } : {}),
+        },
+      } : {}),
     };
 
     const [data, total] = await Promise.all([

@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { Calendar, Copy, Check, MessageCircle, Handshake, Flag, Receipt } from "lucide-react"
+import { Calendar, Copy, Check, MessageCircle, Handshake, Flag, Receipt, Printer } from "lucide-react"
 import { cn } from "@/lib/utils"
 import QRCode from "react-qr-code"
 import { buildPixPayload } from "@/lib/pix"
@@ -93,12 +93,9 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState("")
   const [confirmedAmount, setConfirmedAmount] = useState<number | null>(null)
+  const [confirmedName, setConfirmedName]     = useState("")
+  const [pixPayload, setPixPayload]           = useState<string | null>(null)
   const [copiedPix, setCopiedPix] = useState(false)
-
-  const pixPayload = useMemo(
-    () => pixKey && confirmedAmount ? buildPixPayload(pixKey, projectName, confirmedAmount) : null,
-    [pixKey, confirmedAmount, projectName],
-  )
 
   function transition(fn: () => void) {
     setVisible(false)
@@ -118,6 +115,8 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
       })
       if (!res.ok) throw new Error()
       setConfirmedAmount(amount)
+      setConfirmedName(form.name)
+      if (pixKey) setPixPayload(buildPixPayload(pixKey, projectName, amount))
       transition(() => setStep(2))
     } catch {
       setError("Erro ao registrar oferta. Tente novamente.")
@@ -130,6 +129,8 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
     transition(() => {
       setForm({ name: "", amount: "", initiativeId: "" })
       setConfirmedAmount(null)
+      setConfirmedName("")
+      setPixPayload(null)
       setError("")
       setStep(1)
     })
@@ -226,7 +227,7 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
               <span className="text-[12px] text-[#22c55e] font-medium">Oferta registrada com sucesso</span>
             </div>
 
-            {pixPayload ? (
+            {pixPayload && (
               <div className="flex flex-col items-center gap-4 rounded-xl border border-[#2c2824] bg-[#0c0b0a] p-5">
                 <div className="text-center">
                   <p className="text-[10px] uppercase tracking-[0.1em] text-[#6b6460] mb-1">Valor a pagar</p>
@@ -253,19 +254,44 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
                   <p className="text-[10px] text-[#6b6460] text-center">Chave: <span className="text-[#9b9390]">{pixKey}</span></p>
                 </div>
               </div>
-            ) : (
-              <div className="rounded-xl border border-[#2c2824] bg-[#0c0b0a] p-5 space-y-1">
-                <p className="text-[10px] uppercase tracking-[0.1em] text-[#6b6460]">Valor comprometido</p>
-                <p className="font-serif text-[22px] font-medium text-[#fcd34d]">
-                  {confirmedAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-[12px] text-[#9b9390] pt-1">Entre em contato com a equipe para confirmar o pagamento.</p>
-              </div>
             )}
 
-            <p className="text-[11px] text-[#6b6460] leading-relaxed text-center">
-              Após confirmação do pagamento pela equipe, o valor entrará no painel da campanha.
-            </p>
+            {/* Mini recibo */}
+            <div id="pledge-receipt" className="rounded-xl border border-[#2c2824] bg-[#0c0b0a] p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-[#6b6460]">Comprovante de oferta</p>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1 text-[10px] text-[#6b6460] hover:text-[#9b9390] transition-colors cursor-pointer">
+                  <Printer className="size-3" /> Imprimir
+                </button>
+              </div>
+              <div className="border-t border-dashed border-[#2c2824] pt-3 space-y-2">
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-[#6b6460]">Ofertante</span>
+                  <span className="text-[#f5f0eb] font-medium">{confirmedName}</span>
+                </div>
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-[#6b6460]">Projeto</span>
+                  <span className="text-[#f5f0eb]">{projectName}</span>
+                </div>
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-[#6b6460]">Valor</span>
+                  <span className="text-[#fcd34d] font-semibold font-serif">
+                    {confirmedAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-[#6b6460]">Data</span>
+                  <span className="text-[#f5f0eb]">{new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-[#6b6460]">Situação</span>
+                  <span className="text-[#f59e0b]">Pendente — aguardando confirmação</span>
+                </div>
+              </div>
+            </div>
+
             <button onClick={reset}
               className="self-center text-[11px] text-[#6b6460] hover:text-[#9b9390] transition-colors underline underline-offset-2">
               Registrar outra oferta
