@@ -87,6 +87,8 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
   slug: string; initiatives: Initiative[]
   pixKey: string | null; projectName: string
 }) {
+  const [step, setStep]           = useState<1 | 2>(1)
+  const [visible, setVisible]     = useState(true)
   const [form, setForm]           = useState({ name: "", amount: "", initiativeId: "" })
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState("")
@@ -98,12 +100,16 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
     [pixKey, confirmedAmount, projectName],
   )
 
+  function transition(fn: () => void) {
+    setVisible(false)
+    setTimeout(() => { fn(); setVisible(true) }, 180)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const amount = Number(form.amount)
     if (!amount || amount <= 0) { setError("Informe um valor válido."); return }
-    setLoading(true)
-    setError("")
+    setLoading(true); setError("")
     try {
       const res = await fetch(`/api/v1/public/projects/${slug}/pledges`, {
         method: "POST",
@@ -112,6 +118,7 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
       })
       if (!res.ok) throw new Error()
       setConfirmedAmount(amount)
+      transition(() => setStep(2))
     } catch {
       setError("Erro ao registrar oferta. Tente novamente.")
     } finally {
@@ -119,99 +126,154 @@ function PledgeForm({ slug, initiatives, pixKey, projectName }: {
     }
   }
 
-  function copyPixKey() {
-    if (!pixKey) return
-    navigator.clipboard?.writeText(pixKey)
-    setCopiedPix(true)
-    setTimeout(() => setCopiedPix(false), 2000)
-  }
-
   function reset() {
-    setForm({ name: "", amount: "", initiativeId: "" })
-    setConfirmedAmount(null)
-    setError("")
+    transition(() => {
+      setForm({ name: "", amount: "", initiativeId: "" })
+      setConfirmedAmount(null)
+      setError("")
+      setStep(1)
+    })
   }
 
-  const inputCls = "w-full px-3 py-2 text-[13px] bg-[#0c0b0a] border border-[#2c2824] rounded-lg text-[#f5f0eb] outline-none focus:border-[#f59e0b] transition-colors"
+  const field = "w-full px-3 py-2.5 text-[13px] bg-[#0c0b0a] border border-[#2c2824] rounded-lg text-[#f5f0eb] outline-none focus:border-[#f59e0b]/70 transition-colors placeholder:text-[#3d3a37]"
 
-  /* ── Step 2: oferta criada → mostrar QR ── */
-  if (confirmedAmount && pixPayload) {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2 text-[#22c55e]">
-          <Check className="size-4" />
-          <span className="text-[13px] font-medium">Oferta registrada — agora efetue o pagamento</span>
-        </div>
-
-        <div className="rounded-xl border border-[#2c2824] bg-[#0c0b0a] p-5 flex flex-col items-center gap-4">
-          <p className="text-[12px] text-[#9b9390] text-center">
-            Escaneie o QR Code no seu banco para pagar{" "}
-            <strong className="text-[#f5f0eb]">
-              {confirmedAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })}
-            </strong>
-          </p>
-          <div className="bg-white p-3 rounded-xl shadow-lg">
-            <QRCode value={pixPayload} size={160} />
-          </div>
-          <div className="w-full space-y-2">
-            <p className="text-[11px] text-[#6b6460] uppercase tracking-[0.08em]">Ou use copia e cola</p>
-            <div className="flex gap-2 items-stretch">
-              <code className="flex-1 px-3 py-2 rounded-lg bg-[#151413] border border-[#2c2824] text-[11px] break-all text-[#9b9390] leading-relaxed">
-                {pixPayload}
-              </code>
-              <button type="button" onClick={() => { navigator.clipboard?.writeText(pixPayload); setCopiedPix(true); setTimeout(() => setCopiedPix(false), 2000) }}
-                className="px-3 rounded-lg border border-[#2c2824] text-[#9b9390] hover:bg-[#1c1a18] transition-colors flex flex-col items-center justify-center gap-1 cursor-pointer shrink-0">
-                {copiedPix ? <Check className="size-3.5 text-[#22c55e]" /> : <Copy className="size-3.5" />}
-                <span className="text-[10px]">{copiedPix ? "Copiado" : "Copiar"}</span>
-              </button>
-            </div>
-            <p className="text-[11px] text-[#6b6460]">Chave PIX: <span className="text-[#9b9390]">{pixKey}</span></p>
-          </div>
-        </div>
-
-        <p className="text-[12px] text-[#6b6460] leading-relaxed">
-          Seu compromisso está registrado. Após confirmação do pagamento pela equipe, o valor entrará no painel da campanha.
-        </p>
-        <button onClick={reset} className="self-start text-[12px] text-[#9b9390] hover:text-[#f5f0eb] transition-colors">
-          Registrar outra oferta
-        </button>
-      </div>
-    )
-  }
-
-  /* ── Step 1: formulário ── */
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <div>
-        <label className="block text-[11px] text-[#9b9390] mb-1">Seu nome *</label>
-        <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-          placeholder="Nome completo" className={inputCls} />
-      </div>
-      <div>
-        <label className="block text-[11px] text-[#9b9390] mb-1">Valor (R$) *</label>
-        <CurrencyInput
-          required
-          value={form.amount}
-          onChange={v => setForm(f => ({ ...f, amount: v }))}
-          placeholder="R$ 0,00"
-          className="w-full px-3 py-2 text-[13px] bg-[#0c0b0a] border border-[#2c2824] rounded-lg text-[#f5f0eb] outline-none focus:border-[#f59e0b] transition-colors h-auto"
-        />
-      </div>
-      {initiatives.length > 0 && (
-        <div>
-          <label className="block text-[11px] text-[#9b9390] mb-1">Iniciativa</label>
-          <select value={form.initiativeId} onChange={e => setForm(f => ({ ...f, initiativeId: e.target.value }))} className={inputCls}>
-            <option value="">Onde for mais necessário</option>
-            {initiatives.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
+    <div className="flex flex-col gap-5">
+
+      {/* ── Step indicator ── */}
+      <div className="flex items-center gap-0">
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "size-5 rounded-full text-[10px] font-bold flex items-center justify-center transition-all duration-300",
+            step >= 1 ? "bg-[#f59e0b] text-[#0c0b0a]" : "border border-[#2c2824] text-[#3d3a37]"
+          )}>1</div>
+          <span className={cn("text-[11px] tracking-[0.06em] transition-colors", step === 1 ? "text-[#f5f0eb]" : "text-[#3d3a37]")}>
+            Dados
+          </span>
         </div>
-      )}
-      {error && <p className="text-[12px] text-red-400">{error}</p>}
-      <button type="submit" disabled={loading}
-        className="self-start px-5 py-2 bg-[#f59e0b] text-[#0c0b0a] rounded-lg text-[13px] font-semibold hover:bg-[#d97706] disabled:opacity-60 transition-colors cursor-pointer">
-        {loading ? "Gerando cobrança..." : "Gerar cobrança PIX"}
-      </button>
-    </form>
+
+        <div className="flex-1 mx-3 h-px bg-[#2c2824] relative overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 bg-[#f59e0b] transition-all duration-500"
+            style={{ right: step === 2 ? "0%" : "100%" }}
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className={cn("text-[11px] tracking-[0.06em] transition-colors", step === 2 ? "text-[#f5f0eb]" : "text-[#3d3a37]")}>
+            Pagamento
+          </span>
+          <div className={cn(
+            "size-5 rounded-full text-[10px] font-bold flex items-center justify-center transition-all duration-300",
+            step >= 2 ? "bg-[#f59e0b] text-[#0c0b0a]" : "border border-[#2c2824] text-[#3d3a37]"
+          )}>2</div>
+        </div>
+      </div>
+
+      {/* ── Content ── */}
+      <div
+        className="transition-all duration-[180ms]"
+        style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(5px)" }}
+      >
+
+        {/* Step 1 */}
+        {step === 1 && (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.12em] text-[#6b6460] mb-1.5">Seu nome *</label>
+              <input required value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Nome completo" className={field} />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.12em] text-[#6b6460] mb-1.5">Valor *</label>
+              <CurrencyInput
+                required
+                value={form.amount}
+                onChange={v => setForm(f => ({ ...f, amount: v }))}
+                placeholder="R$ 0,00"
+                className="w-full px-3 py-2.5 text-[13px] bg-[#0c0b0a] border border-[#2c2824] rounded-lg text-[#f5f0eb] outline-none focus:border-[#f59e0b]/70 transition-colors h-auto placeholder:text-[#3d3a37]"
+              />
+            </div>
+            {initiatives.length > 0 && (
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.12em] text-[#6b6460] mb-1.5">Iniciativa</label>
+                <select value={form.initiativeId}
+                  onChange={e => setForm(f => ({ ...f, initiativeId: e.target.value }))}
+                  className={field}>
+                  <option value="">Onde for mais necessário</option>
+                  {initiatives.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                </select>
+              </div>
+            )}
+            {error && <p className="text-[12px] text-red-400">{error}</p>}
+            <button type="submit" disabled={loading}
+              className="w-full py-2.5 bg-[#f59e0b] text-[#0c0b0a] rounded-lg text-[13px] font-semibold hover:bg-[#d97706] disabled:opacity-60 transition-colors cursor-pointer flex items-center justify-center gap-2 mt-1">
+              {loading ? (
+                <><span className="size-3.5 border-2 border-[#0c0b0a]/30 border-t-[#0c0b0a] rounded-full animate-spin" />Registrando...</>
+              ) : <>Gerar cobrança PIX <span className="opacity-60">→</span></>}
+            </button>
+          </form>
+        )}
+
+        {/* Step 2 */}
+        {step === 2 && confirmedAmount !== null && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <div className="size-5 rounded-full bg-[#22c55e]/15 flex items-center justify-center shrink-0">
+                <Check className="size-3 text-[#22c55e]" />
+              </div>
+              <span className="text-[12px] text-[#22c55e] font-medium">Oferta registrada com sucesso</span>
+            </div>
+
+            {pixPayload ? (
+              <div className="flex flex-col items-center gap-4 rounded-xl border border-[#2c2824] bg-[#0c0b0a] p-5">
+                <div className="text-center">
+                  <p className="text-[10px] uppercase tracking-[0.1em] text-[#6b6460] mb-1">Valor a pagar</p>
+                  <p className="font-serif text-[26px] font-medium text-[#fcd34d]">
+                    {confirmedAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded-xl" style={{ boxShadow: "0 0 32px color-mix(in oklch, #f59e0b 22%, transparent)" }}>
+                  <QRCode value={pixPayload} size={148} />
+                </div>
+                <div className="w-full space-y-2">
+                  <p className="text-[10px] uppercase tracking-[0.1em] text-[#6b6460] text-center">Copia e cola PIX</p>
+                  <div className="flex gap-2 items-stretch">
+                    <code className="flex-1 px-3 py-2 rounded-lg bg-[#151413] border border-[#2c2824] text-[10px] break-all text-[#9b9390] leading-relaxed">
+                      {pixPayload}
+                    </code>
+                    <button type="button"
+                      onClick={() => { navigator.clipboard?.writeText(pixPayload!); setCopiedPix(true); setTimeout(() => setCopiedPix(false), 2000) }}
+                      className="px-3 rounded-lg border border-[#2c2824] hover:bg-[#1c1a18] transition-colors flex flex-col items-center justify-center gap-1 cursor-pointer shrink-0">
+                      {copiedPix ? <Check className="size-3.5 text-[#22c55e]" /> : <Copy className="size-3.5 text-[#9b9390]" />}
+                      <span className="text-[10px] text-[#6b6460]">{copiedPix ? "Copiado" : "Copiar"}</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#6b6460] text-center">Chave: <span className="text-[#9b9390]">{pixKey}</span></p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-[#2c2824] bg-[#0c0b0a] p-5 space-y-1">
+                <p className="text-[10px] uppercase tracking-[0.1em] text-[#6b6460]">Valor comprometido</p>
+                <p className="font-serif text-[22px] font-medium text-[#fcd34d]">
+                  {confirmedAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-[12px] text-[#9b9390] pt-1">Entre em contato com a equipe para confirmar o pagamento.</p>
+              </div>
+            )}
+
+            <p className="text-[11px] text-[#6b6460] leading-relaxed text-center">
+              Após confirmação do pagamento pela equipe, o valor entrará no painel da campanha.
+            </p>
+            <button onClick={reset}
+              className="self-center text-[11px] text-[#6b6460] hover:text-[#9b9390] transition-colors underline underline-offset-2">
+              Registrar outra oferta
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
