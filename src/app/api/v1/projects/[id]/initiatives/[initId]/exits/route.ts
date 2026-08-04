@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const ip = req.headers.get("x-forwarded-for");
     const dto = createFinancialExitSchema.parse(await req.json());
     const exit = await financialService.createExit(id, initId, payload.organizationId, payload.userId, dto);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "financial-exit", entityId: exit.id, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "financial-exit", entityId: exit.id, ip, after: exit as Record<string, unknown> });
     return Response.json(exit, { status: 201 });
   } catch (e) { return errorResponse(e); }
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import {
   ShieldCheck, LogIn, LogOut, Plus, Pencil, Trash2,
-  Clock, Globe, User, Building2, Tag, ChevronLeft, ChevronRight,
+  Clock, Globe, User, Building2, Tag, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
 } from "lucide-react"
 import { fetchWithAuth } from "@/lib/fetch-with-auth"
 import { AppDrawer } from "@/components/shared/app-drawer"
@@ -96,6 +96,17 @@ function fmt(v: unknown): string {
   if (v === null || v === undefined) return "—"
   if (typeof v === "boolean") return v ? "Sim" : "Não"
   return String(v)
+}
+
+function JsonBlock({ data, label }: { data: Record<string, unknown>; label: string }) {
+  return (
+    <div className="flex-1 min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-text-subtle mb-1.5">{label}</p>
+      <pre className="text-[11px] font-mono text-foreground/75 bg-background border border-border rounded-lg p-3 overflow-auto max-h-52 leading-relaxed whitespace-pre-wrap break-all">
+        {JSON.stringify(data, null, 2)}
+      </pre>
+    </div>
+  )
 }
 
 function DiffView({ before, after }: { before: Record<string, unknown>; after: Record<string, unknown> }) {
@@ -218,6 +229,7 @@ export default function AuditoriaPage() {
   const [action, setAction]     = useState("")
   const [selected, setSelected] = useState<AuditEntry | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLogs(null)
@@ -301,6 +313,7 @@ export default function AuditoriaPage() {
                 <th className="px-5 py-3 font-medium">Organização</th>
                 <th className="px-5 py-3 font-medium">IP</th>
                 <th className="px-5 py-3 font-medium">Quando</th>
+                <th className="px-3 py-3" />
               </tr>
             </thead>
             <tbody>
@@ -312,55 +325,103 @@ export default function AuditoriaPage() {
                   <td className="px-5 py-3"><Skeleton className="h-4 w-28" /></td>
                   <td className="px-5 py-3"><Skeleton className="h-4 w-24" /></td>
                   <td className="px-5 py-3"><Skeleton className="h-4 w-32" /></td>
+                  <td className="px-3 py-3" />
                 </tr>
               ))}
 
               {/* Empty */}
               {logs?.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-16 text-center text-muted-foreground text-[13px]">
+                  <td colSpan={6} className="px-5 py-16 text-center text-muted-foreground text-[13px]">
                     Nenhum registro encontrado.
                   </td>
                 </tr>
               )}
 
               {/* Rows */}
-              {logs?.map((log) => (
-                <tr
-                  key={log.id}
-                  onClick={() => openDetail(log)}
-                  className="border-b border-border last:border-0 hover:bg-surface-2/40 transition-colors cursor-pointer"
-                >
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <ActionIcon action={log.action} />
-                      <span className="text-foreground font-medium">{describe(log)}</span>
-                      <Badge variant={actionBadgeVariant(log.action)} dot={false} className="text-[10px] px-1.5 py-0 ml-1">
-                        {ENTITY_LABEL[log.entity] ?? log.entity}
-                      </Badge>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">
-                    {log.user ? (
-                      <div>
-                        <span className="text-foreground">{log.user.name}</span>
-                        <span className="text-text-subtle text-[11px] block">{log.user.email}</span>
-                      </div>
-                    ) : (
-                      <span className="text-text-subtle">Sistema</span>
+              {logs?.map((log) => {
+                const hasJson = (log.action === "create" && !!log.after)
+                  || (log.action === "update" && (!!log.before || !!log.after))
+                  || (log.action === "delete" && !!log.before)
+                const isExpanded = expandedId === log.id
+
+                return (
+                  <>
+                    <tr
+                      key={log.id}
+                      onClick={() => openDetail(log)}
+                      className="border-b border-border last:border-0 hover:bg-surface-2/40 transition-colors cursor-pointer"
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <ActionIcon action={log.action} />
+                          <span className="text-foreground font-medium">{describe(log)}</span>
+                          <Badge variant={actionBadgeVariant(log.action)} dot={false} className="text-[10px] px-1.5 py-0 ml-1">
+                            {ENTITY_LABEL[log.entity] ?? log.entity}
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3">
+                        {log.user ? (
+                          <div>
+                            <span className="text-foreground">{log.user.name}</span>
+                            <span className="text-text-subtle text-[11px] block">{log.user.email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-text-subtle">Sistema</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-muted-foreground">
+                        {log.organization?.name ?? "—"}
+                      </td>
+                      <td className="px-5 py-3 text-muted-foreground font-mono text-[11px]">
+                        {log.ip ?? "—"}
+                      </td>
+                      <td className="px-5 py-3 text-muted-foreground text-[12px] whitespace-nowrap">
+                        {formatDate(log.createdAt)}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {hasJson && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setExpandedId(isExpanded ? null : log.id)
+                            }}
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono transition-colors",
+                              isExpanded
+                                ? "bg-primary/15 text-primary"
+                                : "bg-surface-2 text-text-subtle hover:text-foreground",
+                            )}
+                          >
+                            {"{ }"}
+                            {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+
+                    {isExpanded && hasJson && (
+                      <tr key={`${log.id}-json`} className="border-b border-border bg-surface-2/30">
+                        <td colSpan={6} className="px-5 py-4">
+                          {log.action === "create" && log.after && (
+                            <JsonBlock data={log.after} label="Registro inserido" />
+                          )}
+                          {log.action === "delete" && log.before && (
+                            <JsonBlock data={log.before} label="Registro removido" />
+                          )}
+                          {log.action === "update" && (
+                            <div className="flex gap-4">
+                              {log.before && <JsonBlock data={log.before} label="Antes" />}
+                              {log.after  && <JsonBlock data={log.after}  label="Depois" />}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground">
-                    {log.organization?.name ?? "—"}
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground font-mono text-[11px]">
-                    {log.ip ?? "—"}
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground text-[12px] whitespace-nowrap">
-                    {formatDate(log.createdAt)}
-                  </td>
-                </tr>
-              ))}
+                  </>
+                )
+              })}
             </tbody>
           </table>
         </div>

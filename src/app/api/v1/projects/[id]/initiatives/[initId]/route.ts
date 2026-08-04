@@ -23,8 +23,9 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     const { id, initId } = await params;
     const ip = req.headers.get("x-forwarded-for");
     const dto = updateInitiativeSchema.parse(await req.json());
+    const before = await initiativeService.findById(initId, id, payload.organizationId);
     const updated = await initiativeService.update(initId, id, payload.organizationId, dto);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "update", entity: "initiative", entityId: initId, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "update", entity: "initiative", entityId: initId, ip, before: before as Record<string, unknown>, after: updated as Record<string, unknown> });
     return Response.json(updated);
   } catch (e) { return errorResponse(e); }
 }
@@ -35,8 +36,9 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     authorize(payload, "org:manage");
     const { id, initId } = await params;
     const ip = req.headers.get("x-forwarded-for");
+    const before = await initiativeService.findById(initId, id, payload.organizationId);
     await initiativeService.remove(initId, id, payload.organizationId);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "delete", entity: "initiative", entityId: initId, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "delete", entity: "initiative", entityId: initId, ip, before: before as Record<string, unknown> });
     return new Response(null, { status: 204 });
   } catch (e) { return errorResponse(e); }
 }

@@ -15,8 +15,9 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     const { id } = await params;
     const ip = req.headers.get("x-forwarded-for");
     const dto = updateFinancialCategorySchema.parse(await req.json());
+    const before = await financialCategoryService.findById(id, payload.organizationId);
     const updated = await financialCategoryService.update(id, payload.organizationId, dto);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "update", entity: "financial-category", entityId: id, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "update", entity: "financial-category", entityId: id, ip, before: before as Record<string, unknown>, after: updated as Record<string, unknown> });
     return Response.json(updated);
   } catch (e) { return errorResponse(e); }
 }
@@ -27,8 +28,9 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     authorize(payload, "org:manage");
     const { id } = await params;
     const ip = req.headers.get("x-forwarded-for");
+    const before = await financialCategoryService.findById(id, payload.organizationId);
     await financialCategoryService.remove(id, payload.organizationId);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "delete", entity: "financial-category", entityId: id, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "delete", entity: "financial-category", entityId: id, ip, before: before as Record<string, unknown> });
     return new Response(null, { status: 204 });
   } catch (e) { return errorResponse(e); }
 }

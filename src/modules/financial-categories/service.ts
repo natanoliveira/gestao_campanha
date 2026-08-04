@@ -23,6 +23,10 @@ export const financialCategoryService = {
     return financialCategoryRepository.list(organizationId, type);
   },
 
+  findById(id: string, organizationId: string) {
+    return financialCategoryRepository.findById(id, organizationId);
+  },
+
   create(organizationId: string, dto: CreateFinancialCategoryDTO) {
     return financialCategoryRepository.create({ ...dto, organizationId });
   },

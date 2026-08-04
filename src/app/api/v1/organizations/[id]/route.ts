@@ -28,8 +28,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json();
     const dto = updateOrganizationSchema.parse(body);
     const ip = req.headers.get("x-forwarded-for");
+    const before = await organizationService.findById(id);
     const org = await organizationService.update(id, payload.organizationId, dto);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "update", entity: "organization", entityId: id, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "update", entity: "organization", entityId: id, ip, before: before as Record<string, unknown>, after: org as Record<string, unknown> });
     return Response.json(org);
   } catch (error) {
     return errorResponse(error);

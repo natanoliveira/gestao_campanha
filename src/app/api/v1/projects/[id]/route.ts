@@ -23,8 +23,9 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     const { id } = await params;
     const ip = req.headers.get("x-forwarded-for");
     const dto = updateProjectSchema.parse(await req.json());
+    const before = await projectService.getById(id, payload.organizationId);
     const updated = await projectService.update(id, payload.organizationId, dto);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "update", entity: "project", entityId: id, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "update", entity: "project", entityId: id, ip, before: before as Record<string, unknown>, after: updated as Record<string, unknown> });
     return Response.json(updated);
   } catch (e) { return errorResponse(e); }
 }
@@ -35,8 +36,9 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     authorize(payload, "org:manage");
     const { id } = await params;
     const ip = req.headers.get("x-forwarded-for");
+    const before = await projectService.getById(id, payload.organizationId);
     await projectService.delete(id, payload.organizationId);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "delete", entity: "project", entityId: id, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "delete", entity: "project", entityId: id, ip, before: before as Record<string, unknown> });
     return new Response(null, { status: 204 });
   } catch (e) { return errorResponse(e); }
 }

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const ip = req.headers.get("x-forwarded-for");
     const dto = createFinancialEntrySchema.parse(await req.json());
     const entry = await financialService.createEntry(id, initId, payload.organizationId, payload.userId, dto);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "financial-entry", entityId: entry.id, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "financial-entry", entityId: entry.id, ip, after: entry as Record<string, unknown> });
     return Response.json(entry, { status: 201 });
   } catch (e) { return errorResponse(e); }
 }

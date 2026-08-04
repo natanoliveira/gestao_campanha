@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const dto = createProjectSchema.parse(await req.json());
     const ip = req.headers.get("x-forwarded-for");
     const project = await projectService.create(payload.organizationId, payload.userId, dto);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "project", entityId: project.id, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "project", entityId: project.id, ip, after: project as Record<string, unknown> });
     return Response.json(project, { status: 201 });
   } catch (e) { return errorResponse(e); }
 }

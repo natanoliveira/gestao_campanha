@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const dto = createInitiativeSchema.parse(await req.json());
     const ip = req.headers.get("x-forwarded-for");
     const init = await initiativeService.create(id, payload.organizationId, dto, payload.userId);
-    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "initiative", entityId: init.id, ip });
+    await logAudit({ organizationId: payload.organizationId, userId: payload.userId, action: "create", entity: "initiative", entityId: init.id, ip, after: init as Record<string, unknown> });
     return Response.json(init, { status: 201 });
   } catch (e) { return errorResponse(e); }
 }
