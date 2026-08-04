@@ -19,7 +19,7 @@ export const initiativeRepository = {
         ...baseSelect,
         entries:  { where: { deletedAt: null }, select: { amount: true } },
         exits:    { where: { deletedAt: null }, select: { amount: true } },
-        pledges:  { where: { status: { not: "CANCELLED" } }, select: { amount: true } },
+        pledges:  { select: { amount: true } },
       },
     });
   },
@@ -40,7 +40,7 @@ export const initiativeRepository = {
         select: {
           ...baseSelect,
           entries:  { where: { deletedAt: null }, select: { amount: true } },
-          pledges:  { where: { status: { not: "CANCELLED" } }, select: { amount: true } },
+          pledges:  { select: { amount: true } },
         },
         skip: (page - 1) * limit, take: limit,
         orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
@@ -57,7 +57,7 @@ export const initiativeRepository = {
         ...baseSelect,
         entries:  { where: { deletedAt: null }, select: { amount: true } },
         exits:    { where: { deletedAt: null }, select: { amount: true } },
-        pledges:  { where: { status: { not: "CANCELLED" } }, select: { amount: true } },
+        pledges:  { select: { amount: true } },
       },
     });
   },
@@ -70,7 +70,7 @@ export const initiativeRepository = {
         ...baseSelect,
         entries:  { where: { deletedAt: null }, select: { amount: true } },
         exits:    { where: { deletedAt: null }, select: { amount: true } },
-        pledges:  { where: { status: { not: "CANCELLED" } }, select: { amount: true } },
+        pledges:  { select: { amount: true } },
       },
     });
   },

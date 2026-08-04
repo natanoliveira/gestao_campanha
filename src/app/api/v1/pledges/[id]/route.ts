@@ -30,7 +30,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
     const pledge = await prisma.pledge.update({
       where: { id },
-      data: { status: body.status, ...(body.note !== undefined ? { note: body.note } : {}) },
+      data: {
+        status:            body.status,
+        statusChangedById: payload.userId,
+        statusChangedAt:   new Date(),
+        ...(body.note !== undefined ? { note: body.note } : {}),
+      },
       select: { id: true, name: true, amount: true, status: true },
     });
 

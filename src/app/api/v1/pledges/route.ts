@@ -53,9 +53,10 @@ export async function GET(req: NextRequest) {
         take: limit,
         select: {
           id: true, name: true, email: true, amount: true, note: true,
-          status: true, createdAt: true,
-          project:    { select: { id: true, name: true } },
-          initiative: { select: { id: true, name: true } },
+          status: true, createdAt: true, statusChangedAt: true,
+          project:         { select: { id: true, name: true } },
+          initiative:      { select: { id: true, name: true } },
+          statusChangedBy: { select: { name: true } },
         },
       }),
       prisma.pledge.count({ where }),

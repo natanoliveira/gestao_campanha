@@ -18,6 +18,8 @@ type Pledge = {
   note: string | null
   status: "PENDING" | "CONFIRMED" | "CANCELLED"
   createdAt: string
+  statusChangedAt: string | null
+  statusChangedBy: { name: string } | null
   project: { id: string; name: string }
   initiative: { id: string; name: string } | null
 }
@@ -300,6 +302,11 @@ export default function OfertasPage() {
                   <td className="px-5 py-3 font-medium text-foreground">{fmt(p.amount)}</td>
                   <td className="px-5 py-3">
                     <Badge variant={STATUS_BADGE[p.status].variant}>{STATUS_BADGE[p.status].label}</Badge>
+                    {p.statusChangedBy && p.statusChangedAt && (
+                      <span className="block text-[11px] text-text-subtle mt-0.5">
+                        {p.statusChangedBy.name} · {formatDate(p.statusChangedAt)}
+                      </span>
+                    )}
                   </td>
                   <td className="px-5 py-3 text-muted-foreground text-[12px]">{formatDate(p.createdAt)}</td>
                   <td className="px-5 py-3">

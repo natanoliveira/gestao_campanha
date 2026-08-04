@@ -108,6 +108,7 @@ model User {
   auditLogs           AuditLog[]
   projectsCreated     Project[]
   initiativesCreated  Initiative[] @relation("InitiativeCreatedBy")
+  pledgesChanged      Pledge[]     @relation("PledgeStatusChangedBy")
 
   @@unique([email, organizationId])
   @@index([organizationId])
@@ -209,13 +210,16 @@ model Pledge {
   amount         Decimal      @db.Decimal(12, 2)
   note           String?
   qrCodeData     String?
-  status         PledgeStatus @default(PENDING)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  status              PledgeStatus @default(PENDING)
+  statusChangedById   String?
+  statusChangedAt     DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  project      Project      @relation(fields: [projectId], references: [id])
-  initiative   Initiative?  @relation(fields: [initiativeId], references: [id])
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  project         Project      @relation(fields: [projectId], references: [id])
+  initiative      Initiative?  @relation(fields: [initiativeId], references: [id])
+  statusChangedBy User?        @relation("PledgeStatusChangedBy", fields: [statusChangedById], references: [id])
 
   @@index([organizationId])
   @@index([projectId])
