@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Scale,
   HandCoins,
+  BookOpen,
 } from "lucide-react"
 import { can } from "@/lib/permissions"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
@@ -36,7 +37,8 @@ const NAV = [
   {
     section: "Organização",
     items: [
-      { href: "/configuracoes", label: "Configurações", Icon: Settings,    permission: "" },
+      { href: "/configuracoes", label: "Configurações", Icon: Settings,  permission: ""          },
+      { href: "/guia",          label: "Guia",          Icon: BookOpen,  permission: "org:manage" },
     ],
   },
   {

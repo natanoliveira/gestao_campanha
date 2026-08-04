@@ -106,11 +106,11 @@ const isAdmin   = can(role, "org:manage");
 
 ## Módulos Implementados
 
-- **Auth** — login (toggle visibilidade de senha), refresh, logout, session-expired
+- **Auth** — login (toggle visibilidade de senha), refresh, logout, session-expired (fluxo 401 → refresh → /session-expired → /login)
 - **Dashboard** — KPIs, projetos recentes, atividades, AlertsPanel, **3 gráficos Recharts** (linha financeira 6m, barra progresso iniciativas, pizza categorias)
 - **Projetos** — CRUD completo + edição modal + slug automático + portal público + **botão download PDF**
 - **PDF por projeto** — `GET /api/v1/projects/[id]/report` via @react-pdf/renderer (KPIs, iniciativas, entradas, despesas)
-- **Iniciativas** — CRUD + `endDate` para alertas de prazo
+- **Iniciativas** — CRUD + `endDate` + coluna "Ofertas" (soma de todos pledges da iniciativa) + `createdById`
 - **Lançamentos** — entries/exits por projeto e por iniciativa (campos moeda com CurrencyInput)
 - **Categorias Financeiras** — CRUD, tabs Entradas/Despesas
 - **Usuários** — CRUD, soft delete, busca
@@ -121,6 +121,8 @@ const isAdmin   = can(role, "org:manage");
 - **Stripe** — Checkout Session de upgrade + webhook
 - **Email digest semanal** — `GET /api/v1/cron/weekly-digest` — Brevo, somente projetos ativos, admins da org
 - **Dashboard charts** — `GET /api/v1/dashboard/charts` — evolução financeira, progresso iniciativas, distribuição por categoria
+- **Ofertas (Pledges)** — formulário público 2 steps com QR PIX (gerado server-side via `qrcode`) + PDF mini recibo + filtros na listagem interna (status, data, ofertante, projeto, iniciativa) + `statusChangedById`/`statusChangedAt` (quem confirmou/cancelou)
+- **Guia do Admin** — `/guia` página estática com roadmap de usabilidade (somente ADMIN via `org:manage`)
 
 ## Credenciais Seed
 
@@ -173,9 +175,9 @@ Executar `/simplify` antes de apresentar código ao usuário.
 ## Pendências
 
 - **CRON_SECRET** — adicionar no dashboard Vercel
-- **R2 public access** — habilitar "Public Access" no bucket Cloudflare, atualizar `R2_PUBLIC_URL` no `.env` e Vercel com URL `r2.dev` (necessário para imagens da timeline renderizarem no browser)
 - **Comentários no portal público** — apoiadores comentam nos posts da timeline sem precisar de conta (rota pública, moderação pelo admin)
-- **Doações pelo portal público** — Stripe Checkout direto na página pública de cada projeto/iniciativa; lançamento financeiro criado automaticamente via webhook
+- **Confirmação automática de oferta** — webhook Pix para confirmar pledge automaticamente + criar FinancialEntry
 - **Notificações em tempo real** — SSE (Server-Sent Events) para alertas de prazo, novos posts na timeline e metas atingidas
-- **Histórico de edições** — diff visual de mudanças em projetos e iniciativas, aproveitando o `AuditLog` já existente
-- **Sessão expirada** — fluxo de detecção, refresh e redirecionamento (página `/session-expired` já existe)
+- **Exportação CSV** — lançamentos e ofertas para planilha
+- **Painel de decisão avançado** — alertas além do básico (página /decisoes existe com 3 ações)
+- **Busca global** — pesquisa cross-entity no sistema
