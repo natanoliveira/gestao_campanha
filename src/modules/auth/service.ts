@@ -1,14 +1,15 @@
 import bcrypt from "bcryptjs";
 import { redis } from "@/lib/redis";
 import { prisma } from "@/lib/prisma";
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from "@/lib/jwt";
+import { signAccessToken, signRefreshToken, verifyRefreshToken, type RefreshPayload } from "@/lib/jwt";
 import { AppError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { authRepository } from "./repository";
 import type { LoginDTO } from "./dto";
 
 const REFRESH_PREFIX = "refresh:";
-const SESSION_TTL = 60 * 60 * 24 * 7;
+const SESSION_TTL = 60 * 60 * 2; // 2h — limite absoluto de sessão
+const MAX_SESSION_MS = SESSION_TTL * 1000;
 
 export const authService = {
   async login(dto: LoginDTO, ip?: string) {
@@ -20,7 +21,7 @@ export const authService = {
 
     const payload = { userId: user.id, organizationId: user.organizationId, role: user.role, isMaster: user.isMaster ?? false };
     const accessToken = signAccessToken(payload);
-    const refreshToken = signRefreshToken(payload);
+    const refreshToken = signRefreshToken({ ...payload, loginAt: Date.now() });
 
     const expiresAt = new Date(Date.now() + SESSION_TTL * 1000);
 
@@ -38,11 +39,15 @@ export const authService = {
   },
 
   async refresh(token: string) {
-    let payload;
+    let payload: RefreshPayload;
     try {
       payload = verifyRefreshToken(token);
     } catch {
       throw new AppError("Token inválido", 401, "UNAUTHORIZED");
+    }
+
+    if (Date.now() - (payload.loginAt ?? 0) > MAX_SESSION_MS) {
+      throw new AppError("Sessão expirada", 401, "UNAUTHORIZED");
     }
 
     const stored = await redis.get(`${REFRESH_PREFIX}${payload.userId}`);
@@ -53,7 +58,7 @@ export const authService = {
 
     const newPayload = { userId: user.id, organizationId: user.organizationId, role: user.role, isMaster: user.isMaster ?? false };
     const accessToken = signAccessToken(newPayload);
-    const refreshToken = signRefreshToken(newPayload);
+    const refreshToken = signRefreshToken({ ...newPayload, loginAt: payload.loginAt });
 
     const expiresAt = new Date(Date.now() + SESSION_TTL * 1000);
 

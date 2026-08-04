@@ -142,6 +142,7 @@ export function Sidebar() {
     localStorage.removeItem("selectedOrgId")
     localStorage.removeItem("selectedOrgName")
     localStorage.removeItem("selectedOrgPlan")
+    localStorage.removeItem("lastActivity")
     router.push("/login")
   }
 

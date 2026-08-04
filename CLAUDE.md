@@ -2,7 +2,7 @@
 
 # gestao_campanha — Contexto do Projeto
 
-Sistema de gestão de campanhas/projetos com portal público. Multi-tenant, dark-only, RBAC com permission matrix.
+Sistema de gestão de campanhas/projetos com portal público. Multi-tenant, dark/light theme toggle, RBAC com permission matrix.
 
 ## Stack
 
@@ -19,13 +19,15 @@ Sistema de gestão de campanhas/projetos com portal público. Multi-tenant, dark
 
 ## Design System
 
-CSS vars em `:root` (dark always-on — nunca adicionar modo light):
+Dois temas via classe `.dark` no `<html>`. Padrão: escuro. Toggle: `ThemeToggle` no sidebar. Persistência: `localStorage["theme"]`. Anti-flash: `<script>` inline no `<head>`.
 
-```css
---background: #0c0b0a   --card: #151413   --surface-2: #1c1a18
---primary: #f59e0b      --success: #22c55e  --destructive: #ef4444  --warning: #fbbf24
---text-subtle: #6b6460  --border: #2c2824   --accent-hover: #d97706
-```
+`:root` = Slate frio (claro): `--background: #f1f5f9`, `--card: #ffffff`, `--border: #e2e8f0`, `--foreground: #0f172a`
+
+`.dark` = Charcoal/Amber (escuro): `--background: #0c0b0a`, `--card: #151413`, `--border: #2c2824`, `--foreground: #f5f0eb`
+
+Ambos têm `--primary: #f59e0b` (amber), `--success: #22c55e`, `--destructive: #ef4444`
+
+Utilitários: `src/lib/theme.ts` — `getTheme()`, `setTheme(theme)`, `toggleTheme()`
 
 ## Padrões Críticos de Código
 
@@ -123,6 +125,7 @@ const isAdmin   = can(role, "org:manage");
 - **Dashboard charts** — `GET /api/v1/dashboard/charts` — evolução financeira, progresso iniciativas, distribuição por categoria
 - **Ofertas (Pledges)** — formulário público 2 steps com QR PIX (gerado server-side via `qrcode`) + PDF mini recibo + filtros na listagem interna (status, data, ofertante, projeto, iniciativa) + `statusChangedById`/`statusChangedAt` (quem confirmou/cancelou)
 - **Guia do Admin** — `/guia` página estática com roadmap de usabilidade (somente ADMIN via `org:manage`)
+- **Tema claro/escuro** — toggle Sol/Lua no sidebar; `src/lib/theme.ts` + `src/components/layout/theme-toggle.tsx`; localStorage; anti-flash script em layout.tsx
 
 ## Credenciais Seed
 

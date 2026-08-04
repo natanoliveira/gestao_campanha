@@ -62,6 +62,7 @@ export default function LoginPage() {
 
       localStorage.setItem("access_token", json.accessToken);
       localStorage.setItem("user", JSON.stringify(json.user));
+      localStorage.setItem("lastActivity", String(Date.now()));
       router.push("/dashboard");
     } catch {
       setError("Erro de conexão. Tente novamente.");
