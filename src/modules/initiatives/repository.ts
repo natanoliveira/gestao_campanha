@@ -17,8 +17,9 @@ export const initiativeRepository = {
       where: { id, projectId, organizationId, deletedAt: null },
       select: {
         ...baseSelect,
-        entries: { where: { deletedAt: null }, select: { amount: true } },
-        exits:   { where: { deletedAt: null }, select: { amount: true } },
+        entries:  { where: { deletedAt: null }, select: { amount: true } },
+        exits:    { where: { deletedAt: null }, select: { amount: true } },
+        pledges:  { where: { status: { not: "CANCELLED" } }, select: { amount: true } },
       },
     });
   },
@@ -38,7 +39,8 @@ export const initiativeRepository = {
         where,
         select: {
           ...baseSelect,
-          entries: { where: { deletedAt: null }, select: { amount: true } },
+          entries:  { where: { deletedAt: null }, select: { amount: true } },
+          pledges:  { where: { status: { not: "CANCELLED" } }, select: { amount: true } },
         },
         skip: (page - 1) * limit, take: limit,
         orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
@@ -53,8 +55,9 @@ export const initiativeRepository = {
       data,
       select: {
         ...baseSelect,
-        entries: { where: { deletedAt: null }, select: { amount: true } },
-        exits:   { where: { deletedAt: null }, select: { amount: true } },
+        entries:  { where: { deletedAt: null }, select: { amount: true } },
+        exits:    { where: { deletedAt: null }, select: { amount: true } },
+        pledges:  { where: { status: { not: "CANCELLED" } }, select: { amount: true } },
       },
     });
   },
@@ -65,8 +68,9 @@ export const initiativeRepository = {
       data,
       select: {
         ...baseSelect,
-        entries: { where: { deletedAt: null }, select: { amount: true } },
-        exits:   { where: { deletedAt: null }, select: { amount: true } },
+        entries:  { where: { deletedAt: null }, select: { amount: true } },
+        exits:    { where: { deletedAt: null }, select: { amount: true } },
+        pledges:  { where: { status: { not: "CANCELLED" } }, select: { amount: true } },
       },
     });
   },

@@ -25,6 +25,7 @@ type Initiative = {
   goal: string
   minGoal: string | null
   raised: string
+  pledged: number
   priority: number
   status: InitStatus
   responsibleId: string | null
@@ -208,6 +209,7 @@ export default function InitiativesPage() {
                 <th className="px-4 py-3 font-medium">Iniciativa</th>
                 <th className="px-4 py-3 font-medium min-w-[180px]">Meta</th>
                 <th className="px-4 py-3 font-medium">Arrecadado</th>
+                <th className="px-4 py-3 font-medium">Ofertas</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Responsável</th>
                 <th className="px-4 py-3 font-medium text-right">Ações</th>
@@ -272,6 +274,7 @@ export default function InitiativesPage() {
                       <ProgressBar value={p} variant={progressVariant(p)} />
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">{fmt(init.raised)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-[#f59e0b]">{fmt(init.pledged)}</td>
                     <td className="px-4 py-3">
                       <Badge variant={STATUS_MAP[init.status].variant}>
                         {STATUS_MAP[init.status].label}
@@ -677,6 +680,10 @@ function InitiativeModal({ init, projectId, onClose, onMutate }: {
                   <p className="font-semibold">{fmt(Number(init.minGoal))}</p>
                 </div>
               )}
+              <div className="bg-surface-2 rounded-lg p-3">
+                <p className="text-[11px] text-text-subtle mb-1">Ofertas registradas</p>
+                <p className="font-semibold text-[#f59e0b]">{fmt(init.pledged)}</p>
+              </div>
               <div className="bg-surface-2 rounded-lg p-3">
                 <p className="text-[11px] text-text-subtle mb-1">Status</p>
                 <p className="font-semibold">{init.status}</p>

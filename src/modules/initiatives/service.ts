@@ -8,9 +8,10 @@ export const initiativeService = {
     const result = await initiativeRepository.list(projectId, organizationId, params);
     return {
       ...result,
-      data: result.data.map(({ entries, ...init }) => ({
+      data: result.data.map(({ entries, pledges, ...init }) => ({
         ...init,
-        raised: entries.reduce((s, e) => s + Number(e.amount), 0),
+        raised:   entries.reduce((s, e) => s + Number(e.amount), 0),
+        pledged:  pledges.reduce((s, p) => s + Number(p.amount), 0),
       })),
     };
   },
@@ -18,9 +19,10 @@ export const initiativeService = {
   async findById(id: string, projectId: string, organizationId: string) {
     const initiative = await initiativeRepository.findById(id, projectId, organizationId);
     if (!initiative) throw new AppError("Iniciativa não encontrada", 404, "NOT_FOUND");
-    const raised = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
-    const spent  = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
-    return { ...initiative, raised, spent };
+    const raised   = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
+    const spent    = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
+    const pledged  = initiative.pledges.reduce((s, p) => s + Number(p.amount), 0);
+    return { ...initiative, raised, spent, pledged };
   },
 
   async create(projectId: string, organizationId: string, dto: CreateInitiativeDTO, createdById: string) {
@@ -43,9 +45,10 @@ export const initiativeService = {
       organizationId,
       createdById,
     });
-    const raised = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
-    const spent  = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
-    return { ...initiative, raised, spent };
+    const raised   = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
+    const spent    = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
+    const pledged  = initiative.pledges.reduce((s, p) => s + Number(p.amount), 0);
+    return { ...initiative, raised, spent, pledged };
   },
 
   async update(id: string, projectId: string, organizationId: string, dto: UpdateInitiativeDTO) {
@@ -67,9 +70,10 @@ export const initiativeService = {
       ...dto,
       endDate: dto.endDate ? new Date(dto.endDate) : undefined,
     });
-    const raised = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
-    const spent  = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
-    return { ...initiative, raised, spent };
+    const raised   = initiative.entries.reduce((s, e) => s + Number(e.amount), 0);
+    const spent    = initiative.exits.reduce((s, e) => s + Number(e.amount), 0);
+    const pledged  = initiative.pledges.reduce((s, p) => s + Number(p.amount), 0);
+    return { ...initiative, raised, spent, pledged };
   },
 
   async remove(id: string, projectId: string, organizationId: string) {
