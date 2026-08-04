@@ -18,6 +18,7 @@ import {
   BookOpen,
 } from "lucide-react"
 import { can } from "@/lib/permissions"
+import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -159,14 +160,17 @@ export function Sidebar() {
   return (
     <aside className="w-[60px] md:w-[220px] shrink-0 fixed top-0 left-0 bottom-0 z-30 flex flex-col bg-card border-r border-border">
       {/* Logo */}
-      <div className="flex items-center gap-2 px-3 h-14 border-b border-border overflow-hidden">
-        <div className="size-[26px] bg-primary rounded-[6px] grid place-items-center shrink-0">
-          <svg viewBox="0 0 24 24" className="size-3.5 fill-white">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
+      <div className="flex items-center justify-between px-3 h-14 border-b border-border overflow-hidden">
+        <div className="flex items-center gap-2">
+          <div className="size-[26px] bg-primary rounded-[6px] grid place-items-center shrink-0">
+            <svg viewBox="0 0 24 24" className="size-3.5 fill-white">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <span className="hidden md:block text-[13px] font-semibold tracking-tight whitespace-nowrap">GestãoCampanhas</span>
+          <span className="md:hidden text-[13px] font-bold tracking-tight text-primary">GC</span>
         </div>
-        <span className="hidden md:block text-[13px] font-semibold tracking-tight whitespace-nowrap">GestãoCampanhas</span>
-        <span className="md:hidden text-[13px] font-bold tracking-tight text-primary">GC</span>
+        <ThemeToggle />
       </div>
 
       {/* Org Switcher — master only, hidden on mobile */}

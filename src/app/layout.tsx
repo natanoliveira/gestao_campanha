@@ -26,7 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${ibmPlexSans.variable} ${ibmPlexSerif.variable} h-full antialiased`}>
+    <html lang="pt-BR" className={`${ibmPlexSans.variable} ${ibmPlexSerif.variable} dark h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){var t=localStorage.getItem("theme");document.documentElement.classList.toggle("dark",t!=="light");})();` }} />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
         {children}
         <Toaster position="top-center" richColors />
