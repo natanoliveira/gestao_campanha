@@ -1,524 +1,299 @@
-# Gestão Campanha
+# 🏛️ Gestão Campanha
 
-Sistema de gestão de campanhas e projetos com portal público de transparência financeira.
-
----
-
-## Visão Geral
-
-Plataforma multi-tenant para organizações gerenciarem projetos, iniciativas, arrecadação e prestação de contas públicas. Cada organização possui usuários com papéis diferenciados, projetos com metas e iniciativas, timeline de comunicação, e um portal público (sem autenticação) para transparência financeira.
-
-### Funcionalidades
-
-- Autenticação JWT com refresh token (HttpOnly cookie)
-- RBAC: ADMIN · MANAGER · TREASURER · COMMUNICATION · AUDITOR · MEMBER
-- Projetos com status, metas e progresso por iniciativa
-- Timeline de posts (atualizações públicas ou internas)
-- Prestação de contas: entradas e saídas financeiras
-- Portal público por slug (`/p/:slug`) — sem login
-- Soft delete em todas entidades
+> Sistema multi-tenant para organizações gerenciarem projetos, campanhas de arrecadação e prestação de contas — com portal público de transparência financeira.
 
 ---
 
-## Arquitetura
+## ✨ O que é
+
+Plataforma web completa que centraliza:
+
+- 📁 **Projetos e iniciativas** com metas, prazos e progresso financeiro
+- 💸 **Arrecadação** via formulário público com QR PIX gerado automaticamente
+- 📊 **Dashboard financeiro** com KPIs, gráficos e alertas de prazo
+- 🌐 **Portal público** por slug — transparência sem precisar de login
+- 🔐 **Controle de acesso por papel** (RBAC) com 6 níveis de permissão
+- 📣 **Timeline** de comunicação por projeto (texto, foto, vídeo, PDF, link)
+- 📬 **Email digest semanal** automático para administradores
+
+---
+
+## 🔄 Fluxos Principais
+
+### 1 — Ciclo de vida de um projeto
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Next.js 15 App Router                     │
-│                                                                   │
-│   ┌─────────────┐   ┌──────────────┐   ┌──────────────────────┐ │
-│   │  (auth)     │   │    (app)     │   │      (public)        │ │
-│   │  /login     │   │  /dashboard  │   │     /p/[slug]        │ │
-│   │             │   │  /projects   │   │                      │ │
-│   │             │   │  /users      │   │  Portal de           │ │
-│   │             │   │  /settings   │   │  Transparência       │ │
-│   └─────────────┘   └──────────────┘   └──────────────────────┘ │
-│                              │                                    │
-│   ┌──────────────────────────▼──────────────────────────────┐   │
-│   │                    API Routes /api/v1/                   │   │
-│   │  auth/login · auth/logout · auth/refresh                 │   │
-│   │  projects · projects/[id]                                │   │
-│   │  users · users/[id]                                      │   │
-│   │  organizations · organizations/[id]                      │   │
-│   │  dashboard/stats                                         │   │
-│   │  public/projects/[slug]  (sem autenticação)              │   │
-│   └──────────────────────────┬──────────────────────────────┘   │
-│                              │                                    │
-│   ┌──────────────────────────▼──────────────────────────────┐   │
-│   │                     Service Layer                        │   │
-│   │   src/modules/{auth,projects,users,organizations}/       │   │
-│   │   service.ts · repository.ts · dto.ts                   │   │
-│   └──────────────────────────┬──────────────────────────────┘   │
-│                              │                                    │
-│   ┌──────────────────────────▼──────────────────────────────┐   │
-│   │           Prisma v7 + @prisma/adapter-neon               │   │
-│   │           @neondatabase/serverless (Neon Postgres)       │   │
-│   └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+[Criar Projeto] ──► [Criar Iniciativas] ──► [Publicar na Timeline]
+                                                      │
+                                                      ▼
+[Dashboard atualiza] ◄── [Lançamento criado] ◄── [Confirmar Oferta] ◄── [Receber Ofertas via portal]
 ```
 
-### Fluxo de Autenticação
+### 2 — Jornada do apoiador (portal público)
+
+```
+[Acessa /p/slug] ──► [Escolhe projeto ou iniciativa] ──► [Preenche formulário (2 etapas)]
+                                                                        │
+                                                                        ▼
+[Oferta confirmada] ◄── [Admin confirma no sistema] ◄── [Realiza pagamento PIX] ◄── [Recebe QR + PDF recibo]
+```
+
+### 3 — Gestão financeira
+
+```
+[Oferta confirmada]          [Lançamento manual]
+        │                           │
+        └──────────┬────────────────┘
+                   ▼
+          [Entrada registrada com categoria]
+                   │
+          [Despesas registradas]
+                   │
+                   ▼
+          [Dashboard: KPIs + gráficos atualizados]
+```
+
+### 4 — Autenticação e sessão
 
 ```mermaid
 sequenceDiagram
-    participant C as Cliente (Browser)
-    participant MW as Middleware Next.js
+    participant U as Usuário
+    participant P as proxy.ts (Edge)
     participant API as /api/v1/auth
     participant DB as Neon Postgres
 
-    C->>API: POST /login {email, senha}
-    API->>DB: findUser + verifyPassword
-    DB-->>API: User
-    API-->>C: { accessToken } + Set-Cookie: refresh_token (HttpOnly)
-    C->>C: localStorage.setItem("access_token", ...)
+    U->>API: POST /login {email, senha}
+    API->>DB: verifica credenciais
+    DB-->>API: usuário encontrado
+    API-->>U: { accessToken } + cookie refresh_token (HttpOnly)
 
-    Note over C,MW: Navegação subsequente
-    C->>MW: GET /dashboard
-    MW->>MW: verifica cookie refresh_token
-    alt cookie ausente
-        MW-->>C: redirect /login
+    Note over U,P: Toda navegação subsequente
+    U->>P: GET /dashboard
+    P->>P: verifica cookie refresh_token
+    alt sem cookie
+        P-->>U: redirect /login
     else cookie presente
-        MW-->>C: passa para a página
+        P-->>U: acesso permitido
     end
 
-    Note over C,API: Chamadas de API
-    C->>API: GET /projects Authorization: Bearer <accessToken>
-    API->>API: authenticate(req) → verifica JWT
-    API->>DB: query
-    DB-->>API: dados
-    API-->>C: JSON
+    Note over U,API: Token expirado (401)
+    U->>API: POST /refresh (cookie automático)
+    API->>DB: valida Session ativa
+    DB-->>API: Session válida
+    API-->>U: novo accessToken
 
-    Note over C,API: Renovação de token
-    C->>API: POST /refresh (cookie HttpOnly automático)
-    API->>DB: verifica Session ativa
-    DB-->>API: Session
-    API-->>C: { accessToken } novo
+    Note over U,API: Logout
+    U->>API: POST /logout (com Bearer token)
+    API->>DB: revoga Session
+    API-->>U: cookie refresh_token apagado (Max-Age=0)
 ```
 
 ---
 
-## Modelo de Dados
+## 🛠️ Stack
 
-```mermaid
-erDiagram
-    Organization ||--o{ User : "tem"
-    Organization ||--o{ Project : "tem"
+| Camada | Tecnologia |
+|--------|-----------|
+| 🖥️ Framework | **Next.js 16.2.12** App Router — grupos `(app)` `(auth)` `(public)` |
+| 🗄️ Banco | **Prisma v7** + `@prisma/adapter-neon` + **Neon Postgres** (serverless) |
+| 🎨 CSS | **Tailwind v4** — CSS-first com `@theme inline` em `globals.css` |
+| 🧩 UI | **base-ui** — `Dialog`, `Drawer`; **Lucide React** — ícones |
+| 📝 Formulários | **React Hook Form** + **Zod v4** |
+| 📈 Gráficos | **Recharts** — linha, barra, pizza |
+| 📄 PDF | **@react-pdf/renderer** — relatório por projeto |
+| 📮 Email | **Brevo API** — digest semanal via `src/lib/brevo.ts` |
+| ☁️ Upload | **Cloudflare R2** — via `src/lib/r2.ts` |
+| 💳 Pagamento | **Stripe** — Checkout Session + webhook de upgrade de plano |
+| 🔒 Auth | **JWT** (access 1h `localStorage`) + refresh token (7d `HttpOnly cookie`) |
+| 🖋️ Tipografia | **IBM Plex Sans** (body) + **IBM Plex Serif** (headings) via `next/font` |
+| 🍞 Toasts | **Sonner** — `<Toaster position="top-center" richColors />` |
+| 📱 QR Code | **qrcode** — gerado server-side como SVG (nunca client-side) |
 
-    User ||--o{ Session : "tem"
-    User ||--o{ TimelinePost : "cria"
-    User ||--o{ AuditLog : "gera"
+---
 
-    Project ||--o{ Initiative : "tem"
-    Project ||--o{ TimelinePost : "tem"
-    Project ||--o{ FinancialEntry : "tem"
-    Project ||--o{ FinancialExit : "tem"
-    Project ||--o{ File : "tem"
+## 🔐 Papéis e Permissões (RBAC)
 
-    Organization {
-        string id PK
-        string name
-        string slug UK
-        string cnpj
-        datetime createdAt
-        datetime deletedAt
-    }
+| Papel | Permissões |
+|-------|-----------|
+| `ADMIN` | Acesso total — gerencia org, usuários, projetos, finanças, timeline |
+| `MANAGER` | Cria/edita projetos e iniciativas |
+| `TREASURER` | Registra lançamentos financeiros |
+| `COMMUNICATION` | Publica posts na timeline |
+| `AUDITOR` | Somente leitura |
+| `MEMBER` | Somente leitura |
 
-    User {
-        string id PK
-        string name
-        string email UK
-        string passwordHash
-        enum role
-        string organizationId FK
-        datetime createdAt
-        datetime deletedAt
-    }
+> Sempre usar `can(role, permission)` de `src/lib/permissions.ts`. Nunca comparar `role === "ADMIN"` diretamente.
 
-    Session {
-        string id PK
-        string token UK
-        string userId FK
-        datetime expiresAt
-        datetime createdAt
-    }
-
-    Project {
-        string id PK
-        string name
-        string description
-        enum status
-        boolean isPublic
-        string publicSlug UK
-        datetime startDate
-        datetime endDate
-        string organizationId FK
-        datetime createdAt
-        datetime deletedAt
-    }
-
-    Initiative {
-        string id PK
-        string name
-        string description
-        decimal goal
-        decimal raised
-        enum status
-        int priority
-        string projectId FK
-        datetime createdAt
-        datetime deletedAt
-    }
-
-    TimelinePost {
-        string id PK
-        string content
-        enum type
-        boolean isPublic
-        datetime publishedAt
-        string projectId FK
-        string authorId FK
-        datetime deletedAt
-    }
-
-    FinancialEntry {
-        string id PK
-        string description
-        decimal amount
-        string category
-        date date
-        string projectId FK
-        datetime createdAt
-        datetime deletedAt
-    }
-
-    FinancialExit {
-        string id PK
-        string description
-        decimal amount
-        string supplier
-        date date
-        string projectId FK
-        datetime createdAt
-        datetime deletedAt
-    }
-
-    File {
-        string id PK
-        string name
-        string url
-        string mimeType
-        int size
-        string projectId FK
-        datetime createdAt
-        datetime deletedAt
-    }
-
-    AuditLog {
-        string id PK
-        string action
-        string entity
-        string entityId
-        json changes
-        string userId FK
-        datetime createdAt
-    }
+```
+permission "org:manage"        → ADMIN
+permission "project:write"     → ADMIN, MANAGER
+permission "initiative:write"  → ADMIN, MANAGER
+permission "financial:write"   → ADMIN, MANAGER, TREASURER
+permission "timeline:write"    → ADMIN, MANAGER, COMMUNICATION
+permission "category:write"    → ADMIN, MANAGER
+permission "user:read"         → ADMIN, MANAGER, AUDITOR
 ```
 
 ---
 
-## API Reference
+## 📦 Módulos Implementados
 
-### Autenticação
-
-| Método | Rota | Acesso | Descrição |
-|--------|------|--------|-----------|
-| POST | `/api/v1/auth/login` | Público | Retorna `accessToken` + seta cookie `refresh_token` |
-| POST | `/api/v1/auth/logout` | Autenticado | Invalida Session + limpa cookie |
-| POST | `/api/v1/auth/refresh` | Cookie | Renova `accessToken` usando refresh token |
-
-**POST /api/v1/auth/login**
-```json
-// Request
-{ "email": "admin@demo.com", "password": "senha123" }
-
-// Response 200
-{
-  "accessToken": "eyJ...",
-  "user": { "id": "...", "name": "Admin", "email": "admin@demo.com", "role": "ADMIN" }
-}
-```
+| Módulo | Descrição |
+|--------|-----------|
+| 🔐 **Auth** | Login, logout, refresh, sessão expirada |
+| 📊 **Dashboard** | KPIs, alertas de prazo, 3 gráficos Recharts |
+| 📁 **Projetos** | CRUD, slug, portal público, download PDF |
+| 🎯 **Iniciativas** | CRUD, meta, prazo, total de ofertas |
+| 💰 **Lançamentos** | Entradas e despesas por projeto/iniciativa com categorias |
+| 🏷️ **Categorias** | CRUD por tipo (Entrada / Despesa) |
+| 🤝 **Ofertas (Pledges)** | Formulário público 2 etapas, QR PIX server-side, PDF recibo, filtros internos |
+| 📣 **Timeline** | Posts com upload de mídia para R2 |
+| 👥 **Usuários** | CRUD, papéis, soft delete, busca |
+| ⚙️ **Configurações** | 4 abas: Organização, Usuários, Categorias, Plano |
+| 👑 **Master** | Multi-org: trocar contexto de org sem re-autenticar |
+| 💳 **Stripe** | Checkout Session de upgrade + webhook |
+| 📬 **Email Digest** | Cron toda segunda 12h UTC via Brevo |
+| 🔍 **Auditoria** | Histórico com diff visual before/after (somente master) |
+| 📖 **Guia** | Treinamento de uso para usuário final + fluxograma de ações |
 
 ---
 
-### Projetos
-
-| Método | Rota | Papéis | Descrição |
-|--------|------|--------|-----------|
-| GET | `/api/v1/projects` | Todos | Lista projetos com filtro e paginação |
-| POST | `/api/v1/projects` | ADMIN, MANAGER | Cria projeto |
-| GET | `/api/v1/projects/:id` | Todos | Detalhe completo com iniciativas, timeline e financeiro |
-| PUT | `/api/v1/projects/:id` | ADMIN, MANAGER | Atualiza projeto |
-| DELETE | `/api/v1/projects/:id` | ADMIN | Soft delete |
-
-**GET /api/v1/projects — Query params**
-| Param | Tipo | Descrição |
-|-------|------|-----------|
-| `q` | string | Busca por nome |
-| `status` | DRAFT \| ACTIVE \| COMPLETED \| ARCHIVED | Filtro de status |
-| `page` | number | Página (padrão: 1) |
-| `limit` | number | Itens por página (padrão: 20) |
-
-**Resposta paginada padrão**
-```json
-{
-  "data": [...],
-  "meta": { "total": 42, "page": 1, "limit": 20, "totalPages": 3 }
-}
-```
-
----
-
-### Usuários
-
-| Método | Rota | Papéis | Descrição |
-|--------|------|--------|-----------|
-| GET | `/api/v1/users` | ADMIN, MANAGER | Lista usuários da organização |
-| POST | `/api/v1/users` | ADMIN | Cria usuário |
-| GET | `/api/v1/users/:id` | ADMIN, MANAGER | Detalhe do usuário |
-| PUT | `/api/v1/users/:id` | ADMIN | Atualiza usuário |
-| DELETE | `/api/v1/users/:id` | ADMIN | Soft delete |
-
----
-
-### Organizações
-
-| Método | Rota | Papéis | Descrição |
-|--------|------|--------|-----------|
-| GET | `/api/v1/organizations` | ADMIN | Lista organizações |
-| POST | `/api/v1/organizations` | ADMIN | Cria organização |
-| GET | `/api/v1/organizations/:id` | ADMIN | Detalhe |
-| PUT | `/api/v1/organizations/:id` | ADMIN | Atualiza |
-
----
-
-### Dashboard
-
-| Método | Rota | Acesso | Descrição |
-|--------|------|--------|-----------|
-| GET | `/api/v1/dashboard/stats` | Todos | KPIs: projetos ativos, arrecadação, progresso, atividade recente |
-
----
-
-### Portal Público
-
-| Método | Rota | Acesso | Descrição |
-|--------|------|--------|-----------|
-| GET | `/api/v1/public/projects/:slug` | Público | Dados públicos do projeto pelo slug |
-
-**Resposta**
-```json
-{
-  "id": "...", "name": "Campanha X", "description": "...",
-  "organization": "Nome da Org",
-  "stats": {
-    "totalRaised": 15000, "totalGoal": 20000,
-    "goalPercent": 75, "supporters": 42, "balance": 3500
-  },
-  "initiatives": [...],
-  "timelinePosts": [...],
-  "financialEntries": [...],
-  "financialExits": [...]
-}
-```
-
----
-
-## Estrutura de Diretórios
+## 🏗️ Arquitetura
 
 ```
 src/
 ├── app/
-│   ├── (app)/                    # Layout autenticado (sidebar)
-│   │   ├── layout.tsx            # AppShell: Sidebar + main
-│   │   ├── dashboard/page.tsx    # KPIs + projetos + atividade
-│   │   ├── projects/
-│   │   │   ├── page.tsx          # Grid de cards com busca e filtro
-│   │   │   └── [id]/page.tsx     # Detalhe em abas (resumo/iniciativas/timeline/contas)
-│   │   ├── users/                # (em desenvolvimento)
-│   │   └── settings/             # (em desenvolvimento)
+│   ├── (app)/                        # Layout autenticado (sidebar)
+│   │   ├── dashboard/page.tsx
+│   │   ├── projects/[id]/page.tsx
+│   │   ├── ofertas/page.tsx
+│   │   ├── decisoes/page.tsx
+│   │   ├── configuracoes/page.tsx
+│   │   ├── guia/page.tsx             # Treinamento de uso + fluxograma
+│   │   └── master/                   # Área master (multi-org)
 │   ├── (auth)/
-│   │   └── login/page.tsx        # Split-screen: informativo + formulário
+│   │   ├── login/page.tsx
+│   │   └── session-expired/page.tsx
 │   ├── (public)/
-│   │   └── p/[slug]/page.tsx     # Portal público de transparência
-│   ├── api/v1/
-│   │   ├── auth/
-│   │   │   ├── login/route.ts
-│   │   │   ├── logout/route.ts
-│   │   │   └── refresh/route.ts
-│   │   ├── dashboard/stats/route.ts
-│   │   ├── projects/
-│   │   │   ├── route.ts          # GET (list) + POST (create)
-│   │   │   └── [id]/route.ts     # GET + PUT + DELETE
-│   │   ├── users/route.ts · users/[id]/route.ts
-│   │   ├── organizations/route.ts · organizations/[id]/route.ts
-│   │   └── public/projects/[slug]/route.ts
-│   ├── globals.css               # Design system (CSS vars, Tailwind @theme)
-│   ├── layout.tsx                # Root: IBM Plex Sans + IBM Plex Serif
-│   └── page.tsx                  # Redirect → /dashboard
+│   │   └── p/[slug]/page.tsx         # Portal público de transparência
+│   └── api/v1/
+│       ├── auth/          login · logout · refresh
+│       ├── dashboard/     stats · charts
+│       ├── projects/      CRUD + [id]/report (PDF)
+│       ├── initiatives/   CRUD
+│       ├── entries/       lançamentos de entrada
+│       ├── exits/         lançamentos de saída
+│       ├── pledges/       ofertas
+│       ├── timeline/      posts
+│       ├── users/         CRUD
+│       ├── upload/        multipart → R2
+│       ├── webhooks/      stripe
+│       ├── cron/          weekly-digest
+│       └── public/        projetos sem auth
 ├── components/
-│   ├── layout/
-│   │   └── sidebar.tsx           # Nav + logout com ConfirmDialog
-│   ├── shared/
-│   │   ├── app-drawer.tsx        # Painel lateral (base-ui Drawer)
-│   │   ├── confirm-dialog.tsx    # Modal com spinner + error state
-│   │   ├── feed-item.tsx         # Item de timeline
-│   │   ├── kpi-card.tsx          # Card de métrica com delta
-│   │   └── progress-bar.tsx      # Barra de progresso variante
-│   └── ui/
-│       ├── badge.tsx             # Pills de status
-│       ├── button.tsx            # Variantes de botão
-│       ├── spinner.tsx           # SVG spinner sm/md/lg
-│       ├── input.tsx
-│       ├── label.tsx
-│       └── card.tsx
+│   ├── layout/sidebar.tsx
+│   └── shared/
+│       ├── confirm-dialog.tsx        # Todo botão destrutivo
+│       ├── app-drawer.tsx            # Drawer lateral (somente visualização)
+│       ├── currency-input.tsx        # Máscara pt-BR, emite string numérica
+│       ├── alerts-panel.tsx          # Alertas de prazo no dashboard
+│       ├── pledge-form.tsx           # Formulário público de oferta
+│       └── kpi-card · progress-bar · badge · spinner · feed-item
 ├── lib/
-│   ├── prisma.ts                 # Singleton PrismaClient com Neon adapter
-│   ├── jwt.ts                    # sign + verify JWT
-│   ├── errors.ts                 # AppError + errorResponse handler
-│   ├── pagination.ts             # paginatedResponse helper
-│   ├── redis.ts                  # Upstash Redis client
-│   ├── s3.ts                     # AWS S3 / R2 client
-│   └── utils.ts                  # cn() + helpers
+│   ├── prisma.ts · jwt.ts · errors.ts · pagination.ts
+│   ├── r2.ts                         # Upload Cloudflare R2
+│   ├── brevo.ts                      # Email transacional
+│   ├── fetch-with-auth.ts            # fetch + refresh automático
+│   └── permissions.ts                # can(role, permission)
 ├── middlewares/
-│   ├── authenticate.ts           # Extrai e verifica Bearer JWT
-│   └── authorize.ts              # Verifica role RBAC
-├── middleware.ts                 # Edge: redireciona /login se sem cookie
-└── modules/
-    ├── auth/dto.ts · repository.ts · service.ts
-    ├── projects/dto.ts · repository.ts · service.ts
-    ├── users/dto.ts · repository.ts · service.ts
-    └── organizations/dto.ts · repository.ts · service.ts
+│   ├── authenticate.ts               # verifica Bearer JWT
+│   └── authorize.ts                  # lança 403 se sem permissão
+├── modules/
+│   └── {auth,projects,initiatives,pledges,users,...}/
+│       service.ts · repository.ts · dto.ts
+└── proxy.ts                          # Edge: verifica cookie → redirect /login
 ```
+
+> **Nota:** `proxy.ts` substitui `middleware.ts` (depreciado no Next.js 16).  
+> Caminhos `/api/v1/public/` e `/p/` são públicos — sem verificação de cookie.
 
 ---
 
-## Setup
-
-### Pré-requisitos
-
-- Node.js 20+
-- Conta [Neon](https://neon.tech) (Postgres serverless)
-- Conta [Upstash](https://upstash.com) (Redis — opcional em dev)
+## ⚙️ Configuração
 
 ### Variáveis de Ambiente
 
-Crie `.env.local` na raiz:
+Crie `.env` na raiz:
 
-| Variável | Descrição | Exemplo |
-|----------|-----------|---------|
-| `DATABASE_URL` | URL do Neon Postgres | `postgresql://user:pass@host/db?sslmode=require` |
-| `JWT_SECRET` | Chave secreta JWT (min 32 chars) | `super-secret-key-change-in-prod` |
-| `JWT_REFRESH_SECRET` | Chave do refresh token | `another-secret-key` |
-| `UPSTASH_REDIS_REST_URL` | URL REST do Upstash Redis | `https://...upstash.io` |
-| `UPSTASH_REDIS_REST_TOKEN` | Token do Upstash Redis | `AX...` |
-| `AWS_ACCESS_KEY_ID` | Chave S3/R2 (upload de arquivos) | `AKIA...` |
-| `AWS_SECRET_ACCESS_KEY` | Secret S3/R2 | `...` |
-| `AWS_REGION` | Região S3 | `us-east-1` |
-| `AWS_BUCKET_NAME` | Nome do bucket | `gestao-campanha` |
+```env
+# Banco
+DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
 
-### Instalação e Execução
+# JWT (gerar com: openssl rand -base64 48)
+JWT_SECRET=...
+JWT_REFRESH_SECRET=...
+
+# Cron (gerar com: openssl rand -base64 32)
+CRON_SECRET=...
+
+# Cloudflare R2
+R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=gestao-campanha
+R2_PUBLIC_URL=https://...
+
+# Brevo (email)
+BREVO_API_KEY=...
+
+# Stripe
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# App
+NEXT_PUBLIC_APP_URL=https://gestao-campanha-alpha.vercel.app
+```
+
+### Instalação
 
 ```bash
-# instalar dependências
 npm install
-
-# gerar cliente Prisma
 npx prisma generate
-
-# aplicar schema no banco
 npx prisma db push
-
-# popular com dados de teste
-npx prisma db seed
-
-# servidor de desenvolvimento
+npx prisma db seed   # cria usuários e dados de demo
 npm run dev
 ```
 
-Acesse `http://localhost:3000`.
+Acesse `http://localhost:3000`
 
-### Usuários de Teste (seed)
+### Credenciais de Demo
 
 | Email | Senha | Papel |
 |-------|-------|-------|
+| `master@sistema.com` | `master123` | Master (multi-org) |
 | `admin@demo.com` | `senha123` | ADMIN |
-| `manager@demo.com` | `senha123` | MANAGER |
-| `treasurer@demo.com` | `senha123` | TREASURER |
-| `auditor@demo.com` | `senha123` | AUDITOR |
 
 ---
 
-## Padrões de Desenvolvimento
+## 🚀 Deploy
 
-### ConfirmDialog — todo botão destrutivo
+- **Plataforma:** Vercel + Neon
+- Variáveis de ambiente configuradas no dashboard da Vercel
+- `CRON_SECRET` obrigatório no dashboard Vercel (usado pelo cron de digest semanal)
+- JWT secrets copiados do `.env` para o dashboard Vercel
 
-```tsx
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-
-<ConfirmDialog
-  trigger={<button>Excluir</button>}
-  title="Excluir projeto?"
-  description="Esta ação não pode ser desfeita."
-  confirmLabel="Excluir"
-  variant="destructive"
-  onConfirm={async () => {
-    await fetch(`/api/v1/projects/${id}`, { method: "DELETE", ... });
-    router.push("/projects");
-  }}
-/>
+Cron configurado em `vercel.json`:
+```json
+{ "crons": [{ "path": "/api/v1/cron/weekly-digest", "schedule": "0 12 * * 1" }] }
 ```
-
-O `ConfirmDialog` gerencia: abertura do modal, spinner durante `onConfirm`, exibição de erro caso a promise rejeite, e fechamento automático em caso de sucesso.
-
-### Soft Delete
-
-Todas as entidades possuem `deletedAt: DateTime?`. Nenhuma query retorna registros com `deletedAt` preenchido. Para deletar, setar `deletedAt: new Date()` via `repository.softDelete()`. Nunca usar `deleteMany` ou `delete` diretamente.
-
-### Resposta Paginada
-
-```ts
-// lib/pagination.ts
-paginatedResponse(data, total, page, limit)
-// → { data: T[], meta: { total, page, limit, totalPages } }
-```
-
-### Roles RBAC
-
-```
-ADMIN       → acesso total (criar/editar/deletar usuários, projetos, org)
-MANAGER     → criar/editar projetos e iniciativas
-TREASURER   → lançamentos financeiros
-COMMUNICATION → posts na timeline
-AUDITOR     → somente leitura
-MEMBER      → somente leitura
-```
-
-### Token JWT
-
-- **Access token**: 1 hora, armazenado em `localStorage` como `access_token`
-- **Refresh token**: 7 dias, HttpOnly cookie `refresh_token`, renovado via `POST /api/v1/auth/refresh`
-- **Middleware edge**: verifica presença do cookie `refresh_token`; ausente → redirect `/login`
 
 ---
 
-## Roadmap
+## 🗺️ Pendências
 
-- [ ] CRUD de Iniciativas (UI)
-- [ ] CRUD de Usuários (UI)
-- [ ] Posts de Timeline (UI)
-- [ ] Lançamentos Financeiros (UI)
-- [ ] Upload de Arquivos (S3/R2)
-- [ ] Rate limiting com Upstash Redis
-- [ ] Testes de integração (Vitest + Supertest)
-- [ ] Deploy (Vercel + Neon)
-- [ ] Internacionalização (i18n)
+- [ ] Confirmação automática de oferta via webhook Pix
+- [ ] Comentários no portal público (sem conta)
+- [ ] Notificações em tempo real (SSE)
+- [ ] Exportação CSV de lançamentos e ofertas
+- [ ] Painel de decisão avançado (`/decisoes` — alertas básicos prontos)
+- [ ] Busca global cross-entity
