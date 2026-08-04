@@ -38,7 +38,7 @@ const NAV = [
     section: "Organização",
     items: [
       { href: "/configuracoes", label: "Configurações", Icon: Settings,  permission: ""          },
-      { href: "/guia",          label: "Guia",          Icon: BookOpen,  permission: "org:manage" },
+      { href: "/guia",          label: "Guia",          Icon: BookOpen,  permission: "" },
     ],
   },
   {

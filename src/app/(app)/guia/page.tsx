@@ -1,181 +1,286 @@
 "use client"
 
-import { CheckCircle2, Clock, Circle, Lightbulb, BookOpen, Zap, Users, Globe, Bell, Download, Search, MessageSquare } from "lucide-react"
+import { useState } from "react"
+import {
+  LayoutGrid, FolderKanban, HandCoins, Activity,
+  BookOpen, CircleHelp, ArrowRight, CheckCircle2, GitBranch,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type ItemStatus = "done" | "next" | "planned"
+// ── Guia de uso ─────────────────────────────────────────────────────────────
 
-type RoadmapItem = {
+const SECTIONS = [
+  {
+    icon: LayoutGrid,
+    title: "Dashboard — visão geral",
+    steps: [
+      "Ao entrar no sistema, você cai direto no Dashboard. Aqui ficam os números mais importantes da organização: projetos ativos, total arrecadado e metas.",
+      "Os cartões no topo (KPIs) resumem a saúde financeira. Passe o olho neles ao começar o dia.",
+      "Logo abaixo aparecem os alertas de prazo — iniciativas próximas do vencimento ficam destacadas. Se algo estiver vermelho, precisa de atenção.",
+      "Os gráficos mostram a evolução financeira dos últimos meses e o progresso de cada iniciativa.",
+    ],
+  },
+  {
+    icon: FolderKanban,
+    title: "Projetos — onde tudo começa",
+    steps: [
+      "Clique em Projetos no menu lateral para ver todos os projetos da organização.",
+      "Cada projeto tem um status: Ativo, Rascunho, Concluído ou Arquivado. Projetos ativos são os que estão recebendo ofertas e movimentações.",
+      "Clique no nome de um projeto para abrir os detalhes: iniciativas, lançamentos financeiros e posts da timeline.",
+      "Dentro de um projeto, use as abas para navegar entre Iniciativas, Lançamentos, Timeline e Ofertas daquele projeto.",
+    ],
+  },
+  {
+    icon: HandCoins,
+    title: "Ofertas — registrar e acompanhar",
+    steps: [
+      "Clique em Ofertas no menu lateral para ver todas as ofertas recebidas pela organização.",
+      "Cada oferta tem um status: Pendente, Confirmada ou Cancelada. Ofertas pendentes ainda não foram confirmadas no banco.",
+      "Para confirmar uma oferta, abra-a e clique em Confirmar. Para cancelar, clique em Cancelar.",
+      "Use os filtros no topo (projeto, iniciativa, status, data) para encontrar uma oferta específica.",
+      "Ao confirmar uma oferta, um lançamento financeiro é gerado automaticamente no projeto.",
+    ],
+  },
+  {
+    icon: Activity,
+    title: "Timeline — acompanhar atualizações",
+    steps: [
+      "A Timeline fica dentro de cada projeto. Acesse Projetos → escolha um projeto → aba Timeline.",
+      "Aqui você vê todos os posts publicados pela equipe: textos, fotos, vídeos, documentos e links.",
+      "Os posts mais recentes ficam no topo. Role para baixo para ver publicações anteriores.",
+      "Se você tiver permissão de comunicação, verá o botão Novo Post para publicar atualizações.",
+    ],
+  },
+]
+
+const TIPS = [
+  "Use o menu lateral esquerdo para navegar entre as seções.",
+  "Se aparecer a mensagem 'Sessao expirada', basta clicar em Fazer login novamente.",
+  "Campos com asterisco (*) sao obrigatorios. Se o formulario nao salvar, procure o campo em vermelho.",
+  "Itens removidos somem da listagem para a maioria dos usuarios. Fale com o administrador se precisar recuperar um registro.",
+  "Duvidas sobre permissoes ou acesso? Fale com o administrador da organizacao.",
+]
+
+// ── Fluxograma ───────────────────────────────────────────────────────────────
+
+type NodeVariant = "start" | "action" | "decision" | "end"
+
+type FlowNode = {
   label: string
-  detail?: string
-  status: ItemStatus
-  icon: React.ElementType
+  sub?: string
+  variant?: NodeVariant
 }
 
-const STATUS_CONFIG: Record<ItemStatus, { icon: React.ElementType; color: string; label: string }> = {
-  done:    { icon: CheckCircle2, color: "text-success",     label: "Concluído"  },
-  next:    { icon: Clock,        color: "text-[#f59e0b]",   label: "Próximo"    },
-  planned: { icon: Circle,       color: "text-text-subtle", label: "Planejado"  },
+type Flow = {
+  title: string
+  description: string
+  nodes: FlowNode[]
 }
 
-const MODULES: { label: string; detail: string }[] = [
-  { label: "Autenticação",           detail: "Login, logout, refresh de sessão e tela de sessão expirada" },
-  { label: "Dashboard",              detail: "KPIs, gráficos (financeiro, iniciativas, categorias) e alertas de prazo" },
-  { label: "Projetos",               detail: "CRUD completo, portal público, download de relatório PDF" },
-  { label: "Iniciativas",            detail: "CRUD, meta, prioridade, responsável, total de ofertas por iniciativa" },
-  { label: "Lançamentos",            detail: "Entradas e despesas por iniciativa com categorias financeiras" },
-  { label: "Ofertas (Pledges)",      detail: "Formulário público com QR PIX, PDF mini-recibo, gestão interna com filtros" },
-  { label: "Timeline",               detail: "Posts por projeto (texto, foto, vídeo, PDF, link) com upload para R2" },
-  { label: "Usuários",               detail: "CRUD, papéis (RBAC), soft delete" },
-  { label: "Configurações",          detail: "Organização, usuários, categorias financeiras, plano" },
-  { label: "Painel de Decisões",     detail: "Alertas de prazo e ações rápidas por projeto" },
-  { label: "Auditoria",              detail: "Histórico de ações com diff visual (before/after) — somente master" },
-  { label: "Email digest semanal",   detail: "Resumo automático toda segunda-feira para admins de orgs ativas" },
-]
-
-const ROADMAP: RoadmapItem[] = [
+const FLOWS: Flow[] = [
   {
-    label:  "Confirmação automática de oferta via Pix",
-    detail: "Webhook Pix confirma pledge e cria lançamento financeiro automaticamente",
-    status: "next",
-    icon:   Zap,
+    title: "Ciclo de vida de um projeto",
+    description: "Do cadastro ao acompanhamento financeiro no dashboard.",
+    nodes: [
+      { label: "Criar Projeto",       sub: "Menu Projetos",         variant: "start"    },
+      { label: "Criar Iniciativas",   sub: "Dentro do projeto"                          },
+      { label: "Publicar na Timeline",sub: "Fotos, videos, texto"                       },
+      { label: "Receber Ofertas",     sub: "Portal publico",        variant: "decision" },
+      { label: "Confirmar Oferta",    sub: "Menu Ofertas"                               },
+      { label: "Lancamento criado",   sub: "Automaticamente",       variant: "end"      },
+    ],
   },
   {
-    label:  "Comentários no portal público",
-    detail: "Apoiadores comentam nos posts da timeline sem precisar de conta",
-    status: "next",
-    icon:   MessageSquare,
+    title: "Jornada do apoiador",
+    description: "Como um apoiador externo faz uma oferta pelo portal publico.",
+    nodes: [
+      { label: "Acessa o portal",     sub: "Link publico",          variant: "start"    },
+      { label: "Escolhe o projeto",   sub: "Ou iniciativa"                              },
+      { label: "Preenche formulario", sub: "Nome, valor, contato"                       },
+      { label: "Gera QR PIX",         sub: "Recibe em PDF",         variant: "decision" },
+      { label: "Realiza pagamento",   sub: "Pelo app do banco"                          },
+      { label: "Admin confirma",      sub: "No sistema interno",    variant: "end"      },
+    ],
   },
   {
-    label:  "Exportação CSV",
-    detail: "Baixar lançamentos financeiros e ofertas em planilha",
-    status: "next",
-    icon:   Download,
-  },
-  {
-    label:  "Notificações em tempo real",
-    detail: "SSE para alertas de prazo, novos posts na timeline e metas atingidas",
-    status: "planned",
-    icon:   Bell,
-  },
-  {
-    label:  "Busca global",
-    detail: "Pesquisa unificada de projetos, iniciativas, ofertas e usuários",
-    status: "planned",
-    icon:   Search,
-  },
-  {
-    label:  "Portal público — múltiplos projetos",
-    detail: "Página pública da organização listando todos os projetos ativos",
-    status: "planned",
-    icon:   Globe,
-  },
-  {
-    label:  "Painel de decisão avançado",
-    detail: "Indicadores de risco, simulações de cenário e recomendações automáticas",
-    status: "planned",
-    icon:   Lightbulb,
-  },
-  {
-    label:  "Gestão de apoiadores",
-    detail: "Histórico de ofertas por ofertante, comunicação direta e segmentação",
-    status: "planned",
-    icon:   Users,
+    title: "Gestao financeira",
+    description: "Como entradas e despesas alimentam os indicadores.",
+    nodes: [
+      { label: "Oferta confirmada",   sub: "Ou lancamento manual",  variant: "start"    },
+      { label: "Entrada registrada",  sub: "Com categoria"                              },
+      { label: "Despesa registrada",  sub: "Saida do projeto"                           },
+      { label: "Dashboard atualiza",  sub: "KPIs e graficos",       variant: "end"      },
+    ],
   },
 ]
 
-function StatusBadge({ status }: { status: ItemStatus }) {
-  const { icon: Icon, color, label } = STATUS_CONFIG[status]
+const NODE_STYLES: Record<NodeVariant, string> = {
+  start:    "bg-primary/10 border-primary/40 text-primary",
+  action:   "bg-card border-border text-foreground",
+  decision: "bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#93c5fd]",
+  end:      "bg-success/10 border-success/30 text-success",
+}
+
+const LEGEND: { variant: NodeVariant; label: string }[] = [
+  { variant: "start",    label: "Inicio / entrada" },
+  { variant: "action",   label: "Acao do usuario"  },
+  { variant: "decision", label: "Ponto de atencao" },
+  { variant: "end",      label: "Resultado final"  },
+]
+
+function Node({ label, sub, variant = "action" }: FlowNode) {
   return (
-    <span className={cn("flex items-center gap-1 text-[11px] font-medium", color)}>
-      <Icon className="size-3.5" />
-      {label}
-    </span>
+    <div className={cn(
+      "rounded-lg border px-3 py-2 text-center min-w-[96px] max-w-[120px]",
+      NODE_STYLES[variant],
+    )}>
+      <p className="text-[12px] font-medium leading-tight">{label}</p>
+      {sub && <p className="text-[10px] opacity-70 mt-0.5 leading-tight">{sub}</p>}
+    </div>
   )
 }
 
+function FlowDiagram({ flow }: { flow: Flow }) {
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-border bg-surface-2">
+        <p className="text-[13px] font-semibold">{flow.title}</p>
+        <p className="text-[11px] text-text-subtle mt-0.5">{flow.description}</p>
+      </div>
+      <div className="px-5 py-5">
+        <div className="flex flex-wrap items-center gap-2">
+          {flow.nodes.map((node, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Node {...node} />
+              {i < flow.nodes.length - 1 && (
+                <ArrowRight className="size-4 text-text-subtle shrink-0" />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Página ───────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: "guia",        label: "Como usar",  Icon: BookOpen   },
+  { id: "fluxograma",  label: "Fluxograma", Icon: GitBranch  },
+] as const
+
+type TabId = typeof TABS[number]["id"]
+
 export default function GuiaPage() {
+  const [tab, setTab] = useState<TabId>("guia")
+
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-10 space-y-10">
+      <div className="max-w-2xl mx-auto px-6 py-10 space-y-8">
 
         {/* Header */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-[#f59e0b]/10 flex items-center justify-center">
-              <BookOpen className="size-5 text-[#f59e0b]" />
-            </div>
-            <div>
-              <h1 className="text-[22px] font-semibold tracking-tight">Guia do Sistema</h1>
-              <p className="text-[13px] text-text-subtle">Módulos disponíveis e próximos passos</p>
-            </div>
+        <div className="flex items-start gap-4">
+          <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <BookOpen className="size-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-[22px] font-semibold tracking-tight">Guia do sistema</h1>
+            <p className="text-[13px] text-text-subtle mt-0.5">
+              Aprenda a usar o sistema passo a passo.
+            </p>
           </div>
         </div>
 
-        {/* Módulos ativos */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="size-4 text-success" />
-            <h2 className="text-[14px] font-semibold uppercase tracking-widest text-text-subtle">Módulos ativos</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {MODULES.map(m => (
-              <div key={m.label} className="bg-card border border-border rounded-lg px-4 py-3 space-y-0.5">
-                <p className="text-[13px] font-medium text-foreground">{m.label}</p>
-                <p className="text-[11px] text-text-subtle leading-relaxed">{m.detail}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* Tabs */}
+        <div className="flex gap-1 bg-surface-2 border border-border rounded-lg p-1">
+          {TABS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-[13px] font-medium transition-colors",
+                tab === id
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-text-subtle hover:text-foreground",
+              )}
+            >
+              <Icon className="size-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
 
-        {/* Roadmap */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Clock className="size-4 text-[#f59e0b]" />
-            <h2 className="text-[14px] font-semibold uppercase tracking-widest text-text-subtle">Roadmap de usabilidade</h2>
-          </div>
-          <div className="space-y-2">
-            {ROADMAP.map(item => {
-              const Icon = item.icon
-              return (
-                <div key={item.label}
-                  className={cn(
-                    "bg-card border rounded-lg px-4 py-3 flex items-start gap-3",
-                    item.status === "next" ? "border-[#f59e0b]/30" : "border-border",
-                  )}>
-                  <div className={cn(
-                    "size-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
-                    item.status === "next"    ? "bg-[#f59e0b]/10" :
-                    item.status === "done"    ? "bg-success/10"   : "bg-surface-2",
-                  )}>
-                    <Icon className={cn("size-4", STATUS_CONFIG[item.status].color)} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <p className="text-[13px] font-medium text-foreground">{item.label}</p>
-                      <StatusBadge status={item.status} />
+        {/* Conteudo: Como usar */}
+        {tab === "guia" && (
+          <>
+            <div className="space-y-6">
+              {SECTIONS.map(({ icon: Icon, title, steps }) => (
+                <div key={title} className="bg-card border border-border rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-surface-2">
+                    <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Icon className="size-4 text-primary" />
                     </div>
-                    {item.detail && (
-                      <p className="text-[11px] text-text-subtle mt-0.5 leading-relaxed">{item.detail}</p>
-                    )}
+                    <h2 className="text-[14px] font-semibold">{title}</h2>
                   </div>
+                  <ol className="px-5 py-4 space-y-3">
+                    {steps.map((step, i) => (
+                      <li key={i} className="flex gap-3 text-[13px] leading-relaxed">
+                        <span className="flex items-center justify-center size-5 rounded-full bg-surface-2 text-[11px] font-semibold text-text-subtle shrink-0 mt-0.5">
+                          {i + 1}
+                        </span>
+                        <span className="text-foreground/80">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
                 </div>
-              )
-            })}
-          </div>
-        </section>
+              ))}
+            </div>
 
-        {/* Legenda */}
-        <section className="border-t border-border pt-6">
-          <div className="flex items-center gap-6 text-[12px] text-text-subtle">
-            {(Object.entries(STATUS_CONFIG) as [ItemStatus, typeof STATUS_CONFIG[ItemStatus]][]).map(([key, { icon: Icon, color, label }]) => (
-              <div key={key} className="flex items-center gap-1.5">
-                <Icon className={cn("size-3.5", color)} />
-                <span>{label}</span>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <CircleHelp className="size-4 text-text-subtle" />
+                <h2 className="text-[13px] font-semibold uppercase tracking-widest text-text-subtle">Dicas rapidas</h2>
               </div>
+              <div className="space-y-2">
+                {TIPS.map((tip, i) => (
+                  <div key={i} className="flex gap-3 bg-card border border-border rounded-lg px-4 py-3">
+                    <CheckCircle2 className="size-4 text-success shrink-0 mt-0.5" />
+                    <p className="text-[13px] text-foreground/80 leading-relaxed">{tip}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Conteudo: Fluxograma */}
+        {tab === "fluxograma" && (
+          <div className="space-y-6">
+            {FLOWS.map((flow) => (
+              <FlowDiagram key={flow.title} flow={flow} />
             ))}
+
+            {/* Legenda */}
+            <div className="border border-border rounded-lg px-5 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-text-subtle mb-3">Legenda</p>
+              <div className="flex flex-wrap gap-3">
+                {LEGEND.map(({ variant, label }) => (
+                  <div key={variant} className="flex items-center gap-2">
+                    <div className={cn("size-3 rounded-sm border", NODE_STYLES[variant])} />
+                    <span className="text-[12px] text-text-subtle">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </section>
+        )}
+
+        {/* Rodape */}
+        <div className="border-t border-border pt-4 flex items-center gap-2 text-[12px] text-text-subtle">
+          <ArrowRight className="size-3.5" />
+          <span>Ainda com duvidas? Fale com o administrador da organizacao.</span>
+        </div>
 
       </div>
     </div>
