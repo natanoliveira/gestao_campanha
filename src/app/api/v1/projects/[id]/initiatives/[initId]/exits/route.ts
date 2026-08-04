@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { authenticate } from "@/middlewares/authenticate";
 import { authorize } from "@/middlewares/authorize";
+import { financialRepository } from "@/modules/financial/repository";
 import { financialService } from "@/modules/financial/service";
 import { createFinancialExitSchema } from "@/modules/financial/dto";
 import { errorResponse } from "@/lib/errors";
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   try {
     const payload = authenticate(req);
     const { initId } = await params;
-    return Response.json(await financialService.listExits(initId, payload.organizationId));
+    return Response.json(await financialRepository.listExits(initId, payload.organizationId));
   } catch (e) { return errorResponse(e); }
 }
 

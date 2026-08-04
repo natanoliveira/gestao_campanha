@@ -4,9 +4,6 @@ import { AppError } from "@/lib/errors";
 import type { CreateFinancialEntryDTO, CreateFinancialExitDTO } from "./dto";
 
 export const financialService = {
-  listEntries: (initiativeId: string, orgId: string) =>
-    financialRepository.listEntries(initiativeId, orgId),
-
   async createEntry(projectId: string, initiativeId: string, orgId: string, userId: string, dto: CreateFinancialEntryDTO) {
     if (dto.categoryId) {
       const cat = await financialCategoryRepository.findById(dto.categoryId, orgId);
@@ -20,9 +17,6 @@ export const financialService = {
     if (!e) throw new AppError("Lançamento não encontrado", 404, "NOT_FOUND");
     return financialRepository.softDeleteEntry(id);
   },
-
-  listExits: (initiativeId: string, orgId: string) =>
-    financialRepository.listExits(initiativeId, orgId),
 
   async createExit(projectId: string, initiativeId: string, orgId: string, userId: string, dto: CreateFinancialExitDTO) {
     if (dto.categoryId) {
