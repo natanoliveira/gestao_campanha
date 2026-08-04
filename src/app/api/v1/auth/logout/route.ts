@@ -3,18 +3,21 @@ import { verifyAccessToken } from "@/lib/jwt";
 import { authService } from "@/modules/auth/service";
 import { AppError, errorResponse } from "@/lib/errors";
 
+const CLEAR_COOKIE = "refresh_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0";
+
 export async function POST(req: NextRequest) {
+  // Always clear the cookie — revoke DB session as best-effort
+  const auth = req.headers.get("authorization")?.replace("Bearer ", "");
   try {
-    const auth = req.headers.get("authorization")?.replace("Bearer ", "");
-    if (!auth) throw new AppError("Token ausente", 401, "UNAUTHORIZED");
-
-    const payload = verifyAccessToken(auth);
-    await authService.logout(payload.userId, payload.organizationId);
-
-    const response = Response.json({ message: "Logout realizado" });
-    response.headers.set("Set-Cookie", "refresh_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
-    return response;
-  } catch (error) {
-    return errorResponse(error);
+    if (auth) {
+      const payload = verifyAccessToken(auth);
+      await authService.logout(payload.userId, payload.organizationId);
+    }
+  } catch {
+    // token invalid/expired — still clear the cookie below
   }
+
+  const response = Response.json({ message: "Logout realizado" });
+  response.headers.set("Set-Cookie", CLEAR_COOKIE);
+  return response;
 }

@@ -131,7 +131,11 @@ export function Sidebar() {
   }
 
   async function logout() {
-    await fetch("/api/v1/auth/logout", { method: "POST" })
+    const token = localStorage.getItem("access_token") ?? "";
+    await fetch("/api/v1/auth/logout", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
     localStorage.removeItem("access_token")
     localStorage.removeItem("user")
     localStorage.removeItem("selectedOrgId")
