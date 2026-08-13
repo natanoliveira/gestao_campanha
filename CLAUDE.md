@@ -29,6 +29,14 @@ Ambos têm `--primary: #f59e0b` (amber), `--success: #22c55e`, `--destructive: #
 
 Utilitários: `src/lib/theme.ts` — `getTheme()`, `setTheme(theme)`, `toggleTheme()`
 
+## Sessão e Expiração
+
+- **Access token**: 1h (JWT, stateless)
+- **Refresh token**: 7d JWT mas com `loginAt` claim — sessão absoluta máxima de **2h** verificada em `auth/service.ts`
+- **Idle timeout**: **30min** sem interação — `lastActivity` em localStorage, atualizado por event listeners em `AppGuard` e por `touchActivity()` em `fetchWithAuth`
+- **`SESSION_TTL`** em `auth/service.ts`: `2 * 60 * 60` (Redis TTL também 2h)
+- Logout limpa: `access_token`, `user`, `selectedOrgId/Name/Plan`, `lastActivity`
+
 ## Padrões Críticos de Código
 
 ```ts
